@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cart — SHOPROCK</title><link rel="stylesheet" href="css/shoprock.css"></head><body>
+<div id="hdr"></div>
+<section><div class="container" style="max-width:800px"><h2 style="margin-bottom:24px">Your cart</h2><div id="out"><div class="loading">Loading</div></div></div></section>
+<div id="ftr"></div><script src="js/common.js"></script>
+<script>
+async function draw(){const o=document.getElementById("out"),c=Cart.get();
+ if(!c.length){o.innerHTML='<div class="empty">Your cart is empty. <a href="shop.html">Browse gifts</a></div>';return;}
+ let cat;try{cat=await loadProducts();}catch(e){o.innerHTML='<div class="errorbox">Could not verify prices right now. Please retry.</div>';return;}
+ const rows=c.map(i=>({i,p:cat.find(x=>x.product_id===i.product_id)}));
+ // anything no longer available is removed automatically (stock/price revalidation)
+ const gone=rows.filter(r=>!r.p);gone.forEach(r=>Cart.remove(r.i.product_id));if(gone.length)toast("Some items are no longer available and were removed.",1);
+ const ok=rows.filter(r=>r.p);if(!ok.length){draw();return;}
+ const sub=ok.reduce((a,r)=>a+r.p.price*r.i.qty,0);
+ o.innerHTML=ok.map(r=>`<div class="card" style="display:flex;gap:16px;align-items:center;margin-bottom:12px"><img src="${esc(r.p.image_url)}" alt="" width="72" height="72" style="object-fit:cover"><div style="flex:1">${esc(r.p.name)}<div class="muted">${inr(r.p.price)}</div></div>
+  <input type="number" min="1" max="10" value="${r.i.qty}" style="width:70px" onchange="Cart.setQty('${esc(r.i.product_id)}',this.value);draw()"><button class="btn ghost sm" onclick="Cart.remove('${esc(r.i.product_id)}');draw()">Remove</button></div>`).join("")+
+  `<p style="margin:24px 0 8px">Subtotal: <b>${inr(sub)}</b></p><p class="muted" style="margin-bottom:20px">Shipping is calculated at checkout.</p><a class="btn" href="checkout.html">Checkout</a>`;}
+draw();
+</script></body></html>

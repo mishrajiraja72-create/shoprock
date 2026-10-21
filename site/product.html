@@ -1,0 +1,21 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Product — SHOPROCK</title><meta id="md" name="description" content="SHOPROCK gift"><link rel="stylesheet" href="css/shoprock.css"></head><body>
+<div id="hdr"></div>
+<section><div class="container" id="out"><div class="loading">Loading</div></div></section>
+<div id="ftr"></div><script src="js/common.js"></script>
+<script>
+(async()=>{const id=new URLSearchParams(location.search).get("id"),o=document.getElementById("out");
+ try{const p=await api("public.product",{product_id:id});
+  document.title=p.name+" — SHOPROCK";document.getElementById("md").content=(p.description||"").slice(0,155);
+  o.innerHTML=`<div class="split" style="align-items:start"><div class="pcard" style="pointer-events:none"><div class="ph"><img src="${esc(p.image_url)}" alt="${esc(p.name)}"></div></div>
+  <div><p class="eyebrow">${esc(p.category||"Gift")}</p><h1 style="font-size:clamp(2rem,5vw,3.2rem);margin:8px 0">${esc(p.name)}</h1>
+  <p style="font-size:1.4rem;color:var(--champagne);margin-bottom:16px">${inr(p.price)}</p><p class="muted" style="margin-bottom:20px">${esc(p.description)}</p>
+  <p class="muted" style="margin-bottom:20px">${p.delivery_estimate?`Estimated delivery: ${esc(p.delivery_estimate)}`:"Delivery estimate confirmed at checkout."}</p>
+  <div class="field" style="max-width:120px"><label for="qty">Quantity</label><input id="qty" type="number" min="1" max="10" value="1"></div>
+  <button class="btn" id="add">Add to cart</button> <button class="btn ghost" id="buy">Buy now</button>
+  <p class="muted" style="margin-top:24px;font-size:.85rem">Returns and refunds: see <a href="policies.html#returns">policy</a>.</p></div></div>`;
+  const q=()=>Math.max(1,Math.min(10,parseInt(document.getElementById("qty").value)||1));
+  document.getElementById("add").onclick=()=>{Cart.add(p.product_id,q());toast("Added to cart");};
+  document.getElementById("buy").onclick=()=>{Cart.add(p.product_id,q());location.href="checkout.html";};
+ }catch(e){o.innerHTML='<div class="empty">This product is not available. <a href="shop.html">Back to the collection</a></div>';}})();
+</script></body></html>

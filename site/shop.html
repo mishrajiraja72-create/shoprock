@@ -1,0 +1,23 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shop — SHOPROCK</title><meta name="description" content="Browse the SHOPROCK gift collection."><link rel="stylesheet" href="css/shoprock.css"></head><body>
+<div id="hdr"></div>
+<section id="collection"><div class="container"><h2 style="margin-bottom:24px">The collection</h2>
+ <div class="row" style="margin-bottom:24px">
+  <div class="field"><label for="q">Search</label><input id="q" type="search" placeholder="Search gifts"></div>
+  <div class="field"><label for="cat">Category</label><select id="cat"><option value="">All</option></select></div>
+  <div class="field"><label for="max">Max price (₹)</label><input id="max" type="number" min="0"></div>
+  <div class="field"><label for="sort">Sort</label><select id="sort"><option value="new">Newest</option><option value="lo">Price: low to high</option><option value="hi">Price: high to low</option></select></div>
+ </div>
+ <div id="out" class="grid"><div class="loading">Loading</div></div></div></section>
+<div id="ftr"></div><script src="js/common.js"></script>
+<script>
+let all=[];const $=id=>document.getElementById(id);
+function render(){let l=all.filter(p=>p.available);const q=$("q").value.toLowerCase(),c=$("cat").value,m=Number($("max").value);
+ if(q)l=l.filter(p=>(p.name+" "+(p.occasion||"")+" "+(p.category||"")).toLowerCase().includes(q));if(c)l=l.filter(p=>p.category===c);if(m)l=l.filter(p=>p.price<=m);
+ if($("sort").value==="lo")l.sort((a,b)=>a.price-b.price);if($("sort").value==="hi")l.sort((a,b)=>b.price-a.price);
+ $("out").innerHTML=!all.length?'<div class="empty" style="grid-column:1/-1">Our first collection is being prepared. Check back soon.</div>':!l.length?'<div class="empty" style="grid-column:1/-1">No gifts match those filters. Try clearing them.</div>':l.map(x=>`<a class="pcard" href="product.html?id=${encodeURIComponent(x.product_id)}"><div class="ph"><img loading="lazy" src="${esc(x.image_url)}" alt="${esc(x.name)}"></div><div class="body"><div>${esc(x.name)}</div><div class="price">${inr(x.price)}</div></div></a>`).join("");}
+(async()=>{const u=new URLSearchParams(location.search);if(u.get("q"))$("q").value=u.get("q");
+ try{all=await loadProducts();[...new Set(all.map(p=>p.category).filter(Boolean))].forEach(c=>$("cat").add(new Option(c,c)));render();}
+ catch(e){$("out").innerHTML='<div class="errorbox" style="grid-column:1/-1">The collection could not be loaded. Please try again shortly.</div>';}
+ ["q","cat","max","sort"].forEach(i=>$(i).addEventListener("input",render));})();
+</script></body></html>

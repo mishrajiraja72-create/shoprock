@@ -1,0 +1,48 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SHOPROCK — Thoughtful gifts for couples</title>
+<meta name="description" content="Curated gifts for couples, chosen to make ordinary moments feel special.">
+<link rel="stylesheet" href="css/shoprock.css"></head><body>
+<div id="hdr"></div>
+<header class="hero"><div class="container">
+  <p class="eyebrow">Gifts for couples</p>
+  <h1>Not just a gift.<br>A little piece of your story.</h1>
+  <p class="lead">Thoughtful finds for your favourite person, selected to make ordinary moments feel special.</p>
+  <div class="cta"><a class="btn" href="shop.html">Shop gifts</a><a class="btn ghost" href="shop.html#collection">Explore the collection</a></div>
+</div></header>
+
+<section><div class="container"><p class="eyebrow">Curated for</p><h2 style="margin:8px 0 32px">Find the right kind of gift</h2>
+  <div class="cats"><a href="shop.html?q=anniversary">Anniversary</a><a href="shop.html?q=birthday">Birthday</a><a href="shop.html?q=long distance">Long distance</a><a href="shop.html?q=just because">Just because</a></div></div></section>
+
+<section class="rule"><div class="container"><p class="eyebrow">Featured</p><h2 style="margin:8px 0 32px">From the collection</h2>
+  <div id="featured" class="grid"><div class="loading">Loading</div></div></div></section>
+
+<section class="rule" id="occasions"><div class="container"><p class="eyebrow">Gift by occasion</p><h2 style="margin:8px 0 16px">There is a right moment for everything</h2>
+  <p class="muted" style="max-width:620px">Browse by occasion — anniversaries, birthdays, apologies, surprises, or simply because. Only products we have checked with our suppliers are listed.</p></div></section>
+
+<section class="rule" id="story"><div class="container split"><div><p class="eyebrow">Our story</p><h2 style="margin:8px 0 16px">We choose fewer things, and we check them.</h2>
+  <p class="muted">SHOPROCK is a small team that looks for gifts worth giving. Every product is reviewed for quality, supplier reliability and delivery before it appears here. <span class="owner-review">[OWNER REVIEW: replace with your real founding story]</span></p></div>
+  <div class="placeholder-img">Brand photograph — add your own image</div></div></section>
+
+<section class="rule"><div class="container split"><div class="placeholder-img">Packaging photograph — add real photo once packaging is finalised</div>
+  <div><p class="eyebrow">Presentation</p><h2 style="margin:8px 0 16px">Made to be opened slowly</h2>
+  <p class="muted">Packaging options are shown on each product page only when they are confirmed. <span class="owner-review">[OWNER REVIEW: describe your actual packaging]</span></p></div></div></section>
+
+<section class="rule"><div class="container"><p class="eyebrow">How it works</p><h2 style="margin:8px 0 32px">Four simple steps</h2>
+  <ol class="steps" style="padding:0"><li><b>Choose</b><br><span class="muted">Pick a gift from the collection.</span></li><li><b>Pay securely</b><br><span class="muted">Orders are prepaid through a payment gateway.</span></li><li><b>We confirm</b><br><span class="muted">We confirm availability with the supplier before dispatch.</span></li><li><b>Track</b><br><span class="muted">Tracking details are shared once shipped.</span></li></ol></div></section>
+
+<section class="rule" id="faq"><div class="container"><p class="eyebrow">Questions</p><h2 style="margin:8px 0 24px">Good to know</h2>
+  <details><summary>How long does delivery take?</summary><p>The estimate on each product page is based on confirmed supplier information. <span class="owner-review">[OWNER REVIEW]</span></p></details>
+  <details><summary>Can I return an item?</summary><p>See our <a href="policies.html#returns">returns policy</a>.</p></details>
+  <details><summary>How do I pay?</summary><p>All orders are prepaid via a payment gateway. We never ask for card or UPI details by message.</p></details></div></section>
+
+<section class="rule"><div class="container" style="max-width:560px"><p class="eyebrow">Launch updates</p><h2 style="margin:8px 0 16px">Be first to know</h2>
+  <form id="interest"><div class="field"><label for="em">Email</label><input id="em" type="email" required></div><button class="btn">Notify me</button></form></div></section>
+<div id="ftr"></div>
+<script src="js/common.js"></script>
+<script>
+(async()=>{const el=document.getElementById("featured");
+ try{const p=await loadProducts();
+  el.innerHTML=p.length?p.slice(0,4).map(x=>`<a class="pcard" href="product.html?id=${encodeURIComponent(x.product_id)}"><div class="ph"><img loading="lazy" src="${esc(x.image_url)}" alt="${esc(x.name)}"></div><div class="body"><div>${esc(x.name)}</div><div class="price">${inr(x.price)}</div></div></a>`).join(""):'<div class="empty" style="grid-column:1/-1">Our first collection is being prepared. Check back soon.</div>';
+ }catch(e){el.innerHTML='<div class="empty" style="grid-column:1/-1">Collection coming soon.</div>';}})();
+document.getElementById("interest").onsubmit=async e=>{e.preventDefault();try{await api("public.interest",{email:document.getElementById("em").value});toast("Thank you — we'll be in touch.");e.target.reset();}catch(x){toast("Could not save right now.",1)}};
+</script></body></html>
