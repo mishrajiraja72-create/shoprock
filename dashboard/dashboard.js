@@ -22,7 +22,7 @@ function modal(html) { $("modal").innerHTML = `<div class="modal-bg" onclick="if
 function closeModal() { $("modal").innerHTML = ""; }
 
 const MENU = [
-  ["overview","Overview"],["research","Product research"],["approvals","Approvals"],["catalogue","Catalogue"],["suppliers","Suppliers"],
+  ["products","Products"],["overview","Overview"],["research","Product research"],["approvals","Approvals"],["catalogue","Catalogue"],["suppliers","Suppliers"],
   ["orders","Orders"],["refunds","Payments & refunds"],["tasks","Tasks"],["team","Team"],["reports","Reports"],["activity","Activity log"],["settings","Settings"],["pricing","Pricing calculator"],["reviews","Reviews"],["coupons","Coupons"],["content","Website content"],["studio","Website Studio"]
 ];
 const ROLE_MENU = { // convenience only; server is the authority
@@ -31,6 +31,7 @@ const ROLE_MENU = { // convenience only; server is the authority
   MANAGER:["overview","research","approvals","catalogue","suppliers","orders","tasks","reports","activity","pricing","reviews"]
 };
 
+["MANAGER","REVIEWER","RESEARCHER"].forEach(r => ROLE_MENU[r].unshift("products"));
 function logout() { S = null; try { sessionStorage.removeItem("sr_sess"); } catch {} $("app").style.display = "none"; $("login").style.display = "block"; }
 $("out").onclick = logout; $("menu").onclick = () => $("side").classList.toggle("open");
 $("lf").onsubmit = async e => { e.preventDefault(); $("lerr").textContent = "";
@@ -68,6 +69,14 @@ const VIEWS = {
       <h3 style="margin:24px 0 8px">Orders by status</h3>${Object.keys(r.orders_by_status).length ? Object.entries(r.orders_by_status).map(([s,n])=>`${badge(s)} ${n} `).join("") : '<span class="muted">None</span>'}`;
   },
 
+  async products() {
+    RESEARCH = await api("research.list"); const cp = canPub();
+    const l = RESEARCH.filter(r => !["REJECTED","ARCHIVED"].includes(r.status)).sort((a,b) => String(b.created_at).localeCompare(a.created_at));
+    $("view").innerHTML = `<div class="bar"><button class="btn" onclick="productWizard()">+ Add new product</button></div>` + (l.length ? `<div class="pgrid">${l.map(r => {
+      const live = r.status === "PUBLISHED";
+      return `<div class="pc"><div class="pi">${r.image_url ? `<img src="${esc(r.image_url)}" alt="">` : "<span class='muted'>No photo</span>"}</div><div class="pb"><b>${esc(r.name)}</b><div>${inr(r.selling_price)} ${badge(live ? "PUBLISHED" : r.status)}</div><div class="muted" style="font-size:.78rem">Margin ${r.pricing.margin_pct}%</div>
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost sm" onclick="editProduct('${esc(r.product_id)}')">Edit</button>${cp ? (live ? `<button class="btn ghost sm" onclick="hideProduct('${esc(r.product_id)}')">Hide</button>` : `<button class="btn sm" onclick="goLive('${esc(r.product_id)}')">Publish</button>`) : ""}${live ? `<a class="btn ghost sm" target="_blank" rel="noopener" href="../site/product.html?id=${encodeURIComponent(r.product_id)}">View</a>` : ""}</div></div></div>`; }).join("")}</div>` : empty("Abhi koi product nahi. '+ Add new product' dabao."));
+  },
   async research() {
     RESEARCH = await api("research.list");
     const draw = () => {
@@ -279,3 +288,45 @@ const saveSection = (id, btn) => guarded(async () => { const els = [...document.
 const saveMode = el => guarded(async () => { try { await api("settings.set", {key:"checkout_mode", value:el.value}); toast("Checkout mode saved ✓"); } catch (e) { const s = await api("settings.get"); el.value = s.checkout_mode || "DEMO"; throw e; } });
 const saveSecret = n => guarded(async () => { const el = $("sk_" + n); await api("secrets.set", {name:n, value:el.value}); el.value = ""; el.placeholder = "Saved - type to replace"; const b = $("sb_" + n); b.textContent = "saved"; b.className = "badge ok"; toast("Saved securely ✓"); });
 const upSet = (k, inpEl) => guarded(async () => { const f = inpEl.files[0]; if (!f) return; toast("Uploading..."); const x = await api("media.create", {mime:"image/jpeg", data: await shrink(f)}); $("im_" + k).value = x.url; const p = $("pv_" + k); p.src = x.url; p.style.display = ""; toast("Uploaded. Ab Save dabao."); });
+
+
+/* ---- simple product flow: add + publish in one screen ---- */
+const canPub = () => ["OWNER","MANAGER","REVIEWER"].includes(S.user.role);
+const FLOW = ["NEW","RESEARCHING","SUPPLIER_CHECK","COSTING","REVIEW","APPROVED","PUBLISHED"];
+async function publishFlow(id) {
+  const r = (await api("research.list")).find(x => x.product_id === id); if (!r) throw new Error("Product not found");
+  if (r.status === "PUBLISHED") return;
+  const fix = {}; if (!r.supplier_id) fix.supplier_id = "OWN"; if (String(r.stock_confirmed).toLowerCase() !== "true") fix.stock_confirmed = "true"; if (String(r.quality_verified).toLowerCase() !== "passed") fix.quality_verified = "passed";
+  if (Object.keys(fix).length) await api("research.update", {product_id:id, patch:fix});
+  const cl = {}; CHECK.forEach(k => cl[k] = true); await api("research.checklist", {product_id:id, checklist:cl});
+  const path = r.status === "OUT_OF_STOCK" ? ["PUBLISHED"] : r.status === "ON_HOLD" ? ["REVIEW","APPROVED","PUBLISHED"] : FLOW.slice(FLOW.indexOf(r.status) + 1);
+  for (const st of path) await api("research.setStatus", {product_id:id, status:st});
+}
+const goLive = id => { if (!confirm("Ye product website par live ho jayega. Photo, price aur description check kar liye?")) return; guarded(async () => { await publishFlow(id); toast("Product live ho gaya ✓"); go("products"); }); };
+const hideProduct = id => guarded(async () => { await api("research.setStatus", {product_id:id, status:"ON_HOLD"}); toast("Website se hata diya"); go("products"); });
+const editProduct = id => { openRecord(id); listingForm(id); };
+let WZ = {g:[]};
+function wzDraw() { $("wz_g").innerHTML = WZ.g.length ? WZ.g.map((u,i) => `<div class="gi"><img src="${esc(u)}" alt=""><div>${i===0?'<span class="badge ok">Cover</span>':`<button class="btn ghost sm" onclick="WZ.g.unshift(WZ.g.splice(${i},1)[0]);wzDraw()">Cover</button>`} <button class="btn ghost sm" onclick="WZ.g.splice(${i},1);wzDraw()">X</button></div></div>`).join("") : '<p class="muted">Abhi photo nahi. Neeche Upload dabao.</p>'; }
+function wzMargin() { const p = Number($("wz_p").value) || 0, c = (Number($("wz_c").value) || 0) + (Number($("wz_k").value) || 0); $("wz_m").innerHTML = p ? (p - c > 0 ? `<span style="color:var(--ok)">Profit approx ${inr(p - c)} per order (${Math.round((p - c) / p * 100)}%)</span>` : `<span style="color:var(--danger)">Cost price se kam hai, loss hoga</span>`) : ""; }
+function productWizard() {
+  WZ = {g:[]}; const t = (id, l, r = 2, ph = "") => `<div class="field"><label>${l}</label><textarea id="${id}" rows="${r}" placeholder="${ph}"></textarea></div>`;
+  modal(`<h3>Add new product</h3><p class="muted" style="margin-bottom:10px">Ek hi screen. Photos, video, price, details bharo aur Publish dabao.</p>
+  <h3 style="font-size:1.1rem">1. Photos</h3><div id="wz_g" class="gal"></div><div class="bar"><label class="btn sm" style="cursor:pointer;margin:0">Upload photos<input id="wz_f" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden></label><div class="field"><input id="wz_u" placeholder="ya image link paste karo (https://)"></div><button class="btn ghost sm" id="wz_a">Add link</button></div>
+  ${F("wz_v","Video link (YouTube ya Google Drive, optional)")}
+  <h3 style="font-size:1.1rem;margin-top:8px">2. Basic details</h3><div class="row">${F("wz_n","Product name")}${F("wz_cat","Category (e.g. Frames, Lamps)")}${F("wz_occ","Occasion (e.g. Anniversary, Birthday)")}${F("wz_dl","Delivery time (e.g. 5-7 days)")}</div>
+  <h3 style="font-size:1.1rem;margin-top:8px">3. Price</h3><div class="row">${F("wz_p","Selling price (₹)","number")}${F("wz_c","Your cost price (₹)","number")}${F("wz_k","Packaging + shipping cost (₹)","number")}</div><p id="wz_m" style="margin:-4px 0 12px"></p>
+  <h3 style="font-size:1.1rem">4. Page text</h3>${t("wz_d","Short description (cards par dikhega)",2)}${t("wz_h","Highlights (ek line mein ek point)",4)}${t("wz_l","Full details (ek line = ek paragraph)",4)}
+  <div class="row">${F("wz_b","Badge (Bestseller / New / Limited, optional)")}</div><label style="text-transform:none;letter-spacing:0;display:flex;gap:10px;align-items:center;margin:6px 0 14px"><input type="checkbox" id="wz_ft" style="width:auto"> Home page par featured dikhao</label>
+  ${canPub() ? '<button class="btn" id="wz_pub">Save &amp; publish live</button> ' : ""}<button class="btn ghost" id="wz_dr">Save as draft</button> <button class="btn ghost" onclick="closeModal()">Cancel</button>`);
+  wzDraw(); ["wz_p","wz_c","wz_k"].forEach(i => $(i).oninput = wzMargin);
+  $("wz_a").onclick = () => { const u = $("wz_u").value.trim(); if (!/^https:\/\//.test(u)) return toast("Link https:// se shuru hona chahiye", true); if (WZ.g.length >= 8) return toast("Maximum 8 photos", true); WZ.g.push(u); $("wz_u").value = ""; wzDraw(); };
+  $("wz_f").onchange = e => guarded(async () => { for (const f of [...e.target.files]) { if (WZ.g.length >= 8) { toast("Maximum 8 photos", true); break; } toast("Uploading " + f.name + " ..."); const x = await api("media.create", {mime:"image/jpeg", data: await shrink(f)}); WZ.g.push(x.url); wzDraw(); } e.target.value = ""; toast("Upload ho gaya ✓"); });
+  const save = pub => guarded(async () => {
+    const v = id => $(id).value.trim(), pl = x => x.split(/\r?\n/).map(y => y.trim()).filter(Boolean).join("\u00b6");
+    if (!v("wz_n")) throw new Error("Product name likho"); if (!(Number(v("wz_p")) > 0)) throw new Error("Selling price likho");
+    if (pub && !WZ.g.length) throw new Error("Publish ke liye kam se kam 1 photo chahiye"); if (pub && !v("wz_d")) throw new Error("Publish ke liye short description likho");
+    const rec = {name:v("wz_n"), category:v("wz_cat"), occasion:v("wz_occ"), delivery_estimate:v("wz_dl"), source_type:"Own listing", selling_price:v("wz_p"), supplier_price:v("wz_c"), packaging_cost:v("wz_k"), public_description:v("wz_d"), highlights:pl($("wz_h").value), long_description:pl($("wz_l").value), gallery_json:JSON.stringify(WZ.g), image_url:WZ.g[0] || "", video_url:v("wz_v"), badge:v("wz_b"), featured:$("wz_ft").checked ? "true" : "false", supplier_id:"OWN", stock_confirmed:"true", quality_verified:"passed"};
+    const r = await api("research.create", {record:rec}); if (pub) await publishFlow(r.product_id);
+    toast(pub ? "Product website par live ✓" : "Draft save ho gaya ✓"); closeModal(); go("products"); });
+  if ($("wz_pub")) $("wz_pub").onclick = () => save(true); $("wz_dr").onclick = () => save(false); }
+document.head.insertAdjacentHTML("beforeend", "<style>.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}.pc{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--charcoal)}.pi{aspect-ratio:1;background:var(--charcoal-2);display:grid;place-items:center}.pi img{width:100%;height:100%;object-fit:cover}.pb{padding:12px}</style>");
