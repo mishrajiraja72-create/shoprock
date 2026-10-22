@@ -94,3 +94,7 @@ h2{background:linear-gradient(180deg,#fff,var(--champagne));-webkit-background-c
 .pcard .price,.feat .num{text-shadow:0 0 24px color-mix(in srgb,var(--gold) 45%,transparent)}
 .checkout-glass,#summary,.paybox{border-radius:18px}
 input,select,textarea{border-radius:12px;background:rgba(8,8,7,.7)}
+
+/* fixes: steps numbering, list indent, mobile hero layout */
+.steps li::before{counter-increment:none}.steps{padding:0}
+@media(max-width:760px){.hero3d{display:block;min-height:0}#scene{position:relative;height:50vh;min-height:300px}.hero-copy{padding:0 0 64px}.hero3d::after,.scroll-hint{display:none}}
