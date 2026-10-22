@@ -1,0 +1,66 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SHOPROCK -- Thoughtful gifts for couples</title>
+<meta name="description" content="Curated gifts for couples, chosen to make ordinary moments feel special.">
+<meta name="theme-color" content="#080807">
+<link rel="stylesheet" href="css/shoprock.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/premium.css"></head><body>
+<div id="hdr"></div>
+<header class="hero3d"><div id="scene" aria-hidden="true"></div>
+  <div class="container hero-copy">
+    <p class="eyebrow reveal">Gifts for couples</p>
+    <h1 class="reveal" id="ht">Not just a gift. A piece of your story.</h1>
+    <p class="lead reveal" id="hp">Thoughtful finds for your favourite person, checked with our suppliers and made to turn an ordinary moment into one you remember.</p>
+    <div class="cta reveal"><a class="btn" href="shop.html">Shop gifts</a><a class="btn ghost" href="#occasions">Find by occasion</a></div>
+  </div>
+  <div class="scroll-hint">SCROLL</div>
+</header>
+
+<div class="trust"><div class="container">
+  <div><i>&#10003;</i>Every product checked before it is listed</div>
+  <div><i>&#9993;</i>Add a personal gift message</div>
+  <div><i>&#9737;</i>Track your order any time</div>
+  <div><i>&#9825;</i>Real people on WhatsApp</div>
+</div></div>
+
+<section id="occasions"><div class="container"><p class="eyebrow reveal">Curated for</p><h2 class="reveal" style="margin:8px 0 32px">Find the right kind of gift</h2>
+  <div class="cats reveal" id="occ"><a href="shop.html?q=anniversary">Anniversary</a><a href="shop.html?q=birthday">Birthday</a><a href="shop.html?q=long distance">Long distance</a><a href="shop.html?q=just because">Just because</a></div></div></section>
+
+<section class="rule"><div class="container"><p class="eyebrow reveal">Featured</p><h2 class="reveal" style="margin:8px 0 32px">From the collection</h2>
+  <div id="featured" class="grid"><div class="loading">Loading</div></div>
+  <p class="reveal" style="margin-top:28px"><a class="btn ghost" href="shop.html">View all gifts</a></p></div></section>
+
+<section class="rule" id="story"><div class="container"><p class="eyebrow reveal">Why SHOPROCK</p><h2 class="reveal" style="margin:8px 0 12px" id="sth">We choose fewer things, and we check them.</h2><p class="muted reveal" id="stx" style="max-width:640px;margin-bottom:28px"></p>
+  <div class="feat">
+    <div class="card tilt reveal"><div class="num">01</div><h3>Checked, not guessed</h3><p class="muted">Each product is reviewed for quality, supplier reliability and delivery before it appears here.</p></div>
+    <div class="card tilt reveal"><div class="num">02</div><h3>Made personal</h3><p class="muted">Add a gift message at checkout so the surprise arrives with your words.</p></div>
+    <div class="card tilt reveal"><div class="num">03</div><h3>Clear and honest</h3><p class="muted">Delivery estimates, prices and policies are shown up front. No hidden surprises.</p></div>
+  </div></div></section>
+
+<section class="rule"><div class="container"><p class="eyebrow reveal">How it works</p><h2 class="reveal" style="margin:8px 0 32px">Four simple steps</h2>
+  <ol class="steps reveal"><li><b>Choose</b><br><span class="muted">Pick a gift from the collection.</span></li><li><b>Pay</b><br><span class="muted">Pay securely. We never ask for card or UPI PINs by message.</span></li><li><b>We confirm</b><br><span class="muted">We confirm availability and payment before dispatch.</span></li><li><b>Track</b><br><span class="muted">Tracking details are shared once your gift ships.</span></li></ol></div></section>
+
+<section class="rule"><div class="container"><div class="wa-cta reveal"><p class="eyebrow">Need help choosing?</p><h2 style="margin:8px 0 12px">Talk to a real person</h2><p class="muted" style="max-width:34rem;margin:0 auto 24px">Tell us the occasion and budget on WhatsApp and we will suggest the right gift.</p>
+  <a class="btn wa" data-wa="Hi! I need help choosing a gift." href="#" style="display:none" target="_blank" rel="noopener">Chat on WhatsApp</a><a class="btn ghost" href="shop.html" id="wafallback">Browse the collection</a></div></div></section>
+
+<section class="rule" id="faq"><div class="container"><p class="eyebrow">Questions</p><h2 style="margin:8px 0 24px">Good to know</h2><div id="faqlist">
+  <details><summary>How long does delivery take?</summary><p>The estimate on each product page is based on confirmed supplier information.</p></details>
+  <details><summary>Can I return an item?</summary><p>See our <a href="policies.html#returns">returns policy</a>.</p></details>
+  <details><summary>How do I pay?</summary><p>All orders are prepaid. We never ask for card details, UPI PINs or OTPs by message.</p></details></div></div></section>
+
+<section class="rule"><div class="container" style="max-width:560px"><p class="eyebrow">Stay in touch</p><h2 style="margin:8px 0 16px">Be first to know</h2>
+  <form id="interest"><div class="field"><label for="em">Email</label><input id="em" type="email" required></div><button class="btn">Notify me</button></form></div></section>
+<div id="ftr"></div>
+<script src="js/common.js"></script><script src="js/scene3d.js"></script>
+<script>
+(async()=>{const el=document.getElementById("featured");
+ try{const p=await loadProducts();
+  p.sort((a,b)=>(b.featured?1:0)-(a.featured?1:0));el.innerHTML=p.length?p.slice(0,4).map(productCard).join(""):'<div class="empty" style="grid-column:1/-1">Our first collection is being prepared. Check back soon.</div>';
+ }catch(e){el.innerHTML='<div class="empty" style="grid-column:1/-1">Collection coming soon.</div>';}
+ initReveal();})();
+loadConfig().then(()=>{const q=id=>document.getElementById(id);
+ if(SITE.hero_image&&/^https:\/\//.test(SITE.hero_image)){document.documentElement.classList.add("hero-img");q("scene").innerHTML=`<img src="${esc(SITE.hero_image)}" alt="">`;}
+ if(SITE.hero_title)q("ht").textContent=SITE.hero_title;if(SITE.hero_text)q("hp").textContent=SITE.hero_text;if(SITE.story_title)q("sth").textContent=SITE.story_title;if(SITE.story_text)q("stx").textContent=SITE.story_text;
+ const oc=(SITE.occasions||"").split(",").map(x=>x.trim()).filter(Boolean);if(oc.length)q("occ").innerHTML=oc.map(o=>`<a href="shop.html?q=${encodeURIComponent(o)}">${esc(o)}</a>`).join("");
+ if((SITE.faq||[]).length)q("faqlist").innerHTML=SITE.faq.map(f=>`<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join("");
+ const w=document.querySelector("[data-wa]");if(w&&w.style.display!=="none")document.getElementById("wafallback").style.display="none";});
+document.getElementById("interest").onsubmit=async e=>{e.preventDefault();try{await api("public.interest",{email:document.getElementById("em").value});toast("Thank you -- we'll be in touch.");e.target.reset();}catch(x){toast("Could not save right now.",1)}};
+</script></body></html>

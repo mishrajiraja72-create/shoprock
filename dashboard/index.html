@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SHOPROCK Dashboard</title><meta name="robots" content="noindex,nofollow">
+<link rel="stylesheet" href="../site/css/shoprock.css">
+<style>
+body{display:block}#app{display:none;min-height:100vh}
+.side{width:210px;background:var(--charcoal);border-right:1px solid var(--line);padding:16px;position:fixed;inset:0 auto 0 0;overflow:auto}
+.side a{display:block;padding:9px 10px;font-size:.85rem;text-decoration:none;cursor:pointer;border-left:2px solid transparent}.side a.on,.side a:hover{border-color:var(--gold);color:var(--champagne);background:var(--charcoal-2)}
+.main{margin-left:210px;padding:0 24px 40px}.top{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--line);margin-bottom:24px}
+.kpis{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));margin-bottom:24px}.kpi{border:1px solid var(--line);background:var(--charcoal);padding:14px}.kpi small{color:var(--grey);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase}.kpi b{display:block;font:500 1.6rem var(--serif);color:var(--champagne)}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:end}.bar .field{margin:0}
+#menu{display:none}
+@media(max-width:860px){.side{transform:translateX(-100%);transition:.2s;z-index:30}.side.open{transform:none}.main{margin-left:0;padding:0 12px 40px}#menu{display:inline-block}}
+#login{max-width:380px;margin:12vh auto;padding:0 16px}
+</style></head><body>
+<div id="login"><div class="logo" style="margin-bottom:24px">SHOP<b>ROCK</b> <span class="muted" style="font-size:.7rem;letter-spacing:.1em">TEAM</span></div>
+<form id="lf"><div class="field"><label for="le">Email</label><input id="le" type="email" required autocomplete="username"></div><div class="field"><label for="lp">Password</label><input id="lp" type="password" required autocomplete="current-password"></div><button class="btn">Sign in</button><div id="lerr" class="errmsg"></div></form></div>
+<div id="app"><aside class="side" id="side"><div class="logo" style="font-size:1.1rem;margin-bottom:16px">SHOP<b>ROCK</b></div><nav id="nav"></nav></aside>
+<div class="main"><div class="top"><button class="btn ghost sm" id="menu">Menu</button><h3 id="title"></h3><div><span id="who" class="muted"></span> <button class="btn ghost sm" id="pw">Change password</button> <button class="btn ghost sm" id="out">Sign out</button></div></div><div id="view"></div></div></div>
+<div id="modal"></div><div id="toast"></div>
+<script src="dashboard.js"></script></body></html>

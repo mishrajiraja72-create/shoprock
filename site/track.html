@@ -1,0 +1,11 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Track order — SHOPROCK</title><link rel="stylesheet" href="css/shoprock.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/premium.css"></head><body>
+<div id="hdr"></div>
+<section><div class="container" style="max-width:560px"><h2 style="margin-bottom:24px">Track your order</h2>
+<form id="f"><div class="field"><label for="oid">Order reference</label><input id="oid" required></div><div class="field"><label for="l4">Last 4 digits of mobile</label><input id="l4" maxlength="4" required></div><button class="btn">Track</button></form><div id="out" style="margin-top:24px"></div></div></section>
+<div id="ftr"></div><script src="js/common.js"></script>
+<script>document.getElementById("f").onsubmit=async e=>{e.preventDefault();const o=document.getElementById("out");o.innerHTML='<div class="loading">Looking up</div>';
+ try{const r=await api("public.trackOrder",{order_id:document.getElementById("oid").value.trim(),phone_last4:document.getElementById("l4").value.trim()});
+  o.innerHTML=`<div class="card"><p class="eyebrow">${esc(r.order_id)}</p>${r.is_demo?'<p class="notice">Demo order — no payment was taken.</p>':''}<p>Payment: <span class="badge ${r.payment_status==="PAID"?"ok":"warn"}">${esc(r.payment_status)}</span> Status: <span class="badge">${esc(r.order_status)}</span></p>
+  ${r.items.map(i=>`<div>${esc(i.name)} × ${i.qty}</div>`).join("")}<p style="margin-top:8px">Total: ${inr(r.total)}</p>${r.tracking_number?`<p>Tracking: ${esc(r.tracking_number)}</p>`:'<p class="muted">Tracking will appear once shipped.</p>'}<p class="muted">Support: ${esc(CONFIG.CONTACT)}</p></div>`;
+ }catch(err){o.innerHTML=`<div class="errorbox">${esc(err.message)}</div>`;}};</script></body></html>
