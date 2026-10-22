@@ -23,11 +23,12 @@ function closeModal() { $("modal").innerHTML = ""; }
 
 const MENU = [
   ["overview","Overview"],["research","Product research"],["approvals","Approvals"],["catalogue","Catalogue"],["suppliers","Suppliers"],
-  ["orders","Orders"],["refunds","Payments & refunds"],["tasks","Tasks"],["team","Team"],["reports","Reports"],["activity","Activity log"],["settings","Settings"],["pricing","Pricing calculator"]
+  ["orders","Orders"],["refunds","Payments & refunds"],["tasks","Tasks"],["team","Team"],["reports","Reports"],["activity","Activity log"],["settings","Settings"],["pricing","Pricing calculator"],["reviews","Reviews"],["coupons","Coupons"],["content","Website content"]
 ];
 const ROLE_MENU = { // convenience only; server is the authority
-  OWNER: MENU.map(m=>m[0]), RESEARCHER:["research","suppliers","tasks","pricing"], REVIEWER:["research","approvals","catalogue","suppliers","tasks","activity","pricing"],
-  ORDER_OPS:["orders","suppliers","tasks"], SUPPORT:["orders","tasks"], FINANCE:["overview","orders","refunds","reports","activity","pricing"]
+  OWNER: MENU.map(m=>m[0]), RESEARCHER:["research","suppliers","tasks","pricing"], REVIEWER:["research","approvals","catalogue","suppliers","tasks","activity","pricing","reviews"],
+  ORDER_OPS:["orders","suppliers","tasks"], SUPPORT:["orders","tasks"], FINANCE:["overview","orders","refunds","reports","activity","pricing","coupons"],
+  MANAGER:["overview","research","approvals","catalogue","suppliers","orders","tasks","reports","activity","pricing","reviews"]
 };
 
 function logout() { S = null; try { sessionStorage.removeItem("sr_sess"); } catch {} $("app").style.display = "none"; $("login").style.display = "block"; }
@@ -91,20 +92,46 @@ const VIEWS = {
     $("view").innerHTML = `<div class="bar"><button class="btn sm" onclick="supplierForm()">Add supplier</button></div>` + (l.length ? table([["ID",r=>esc(r.supplier_id)],["Name",r=>esc(r.name)],["Fulfilment",r=>esc(r.fulfilment_method)],["Delivery",r=>esc(r.delivery_estimate)],["Quality",r=>esc(r.quality_status)],["Verified",r=>esc(String(r.last_verified).slice(0,10))]], l) : empty("No suppliers yet.")); },
 
   async orders() { let l; try { l = await api("orders.list"); } catch { l = await api("orders.listLimited"); }
-    $("view").innerHTML = (l.length ? table([["Order",r=>esc(r.order_id)],["Date",r=>esc(String(r.created_at).slice(0,10))],["Customer",r=>esc(r.customer_name)],["City",r=>esc(r.city)],["Total",r=>r.total===undefined?"—":inr(r.total)],["Payment",r=>r.payment_status?badge(r.payment_status):"—"],["Status",r=>badge(r.order_status)],["Tracking",r=>esc(r.tracking_number||"")],["Demo",r=>String(r.is_test)==="true"?"TEST":""],["",r=>`<button class="btn ghost sm" onclick="orderForm('${esc(r.order_id)}')">Update</button>`]], l) : empty("No orders yet.")) +
+    $("view").innerHTML = (l.length ? table([["Order",r=>esc(r.order_id)],["Date",r=>esc(String(r.created_at).slice(0,10))],["Customer",r=>esc(r.customer_name)],["City",r=>esc(r.city)],["Total",r=>r.total===undefined?"—":inr(r.total)],["Payment",r=>r.payment_status?badge(r.payment_status):"—"],["Status",r=>badge(r.order_status)],["Tracking",r=>esc(r.tracking_number||"")],["Demo",r=>String(r.is_test)==="true"?"TEST":""],["",r=>orderActions(r)]], l) : empty("No orders yet.")) +
       `<div class="bar" style="margin-top:12px"><button class="btn ghost sm" onclick="exportSheet('Orders')">Export CSV</button></div>`; },
   async refunds() { $("view").innerHTML = `<p class="muted" style="margin-bottom:12px">Refunds are recorded here as a tracked manual process. Issue the actual payment-gateway refund in the gateway dashboard, then record it.</p><button class="btn sm" onclick="refundForm()">Record refund</button> <button class="btn ghost sm" onclick="exportSheet('Refunds')">Export CSV</button>`; },
 
   async tasks() { const l = await api("tasks.list"), now = new Date().toISOString().slice(0,10);
     $("view").innerHTML = (S.user.role==="OWNER" ? `<button class="btn sm" onclick="taskForm()" style="margin-bottom:12px">New task</button>` : "") + (l.length ? table([["Title",r=>esc(r.title)],["Priority",r=>esc(r.priority)],["Due",r=>esc(String(r.due_date).slice(0,10))+(r.due_date&&String(r.due_date).slice(0,10)<now&&r.status!=="COMPLETED"?" "+badge("OVERDUE"):"")],["Status",r=>`<select onchange="setTask('${esc(r.task_id)}',this.value)">${["TODO","IN_PROGRESS","REVIEW","COMPLETED","BLOCKED"].map(s=>`<option ${s===r.status?"selected":""}>${s}</option>`).join("")}</select>`]], l) : empty("No tasks assigned.")); },
   async team() { const l = await api("users.list");
-    $("view").innerHTML = `<button class="btn sm" onclick="userForm()" style="margin-bottom:12px">Add member</button>` + table([["Name",r=>esc(r.name)],["Email",r=>esc(r.email)],["Role",r=>`<select onchange="setUser('${esc(r.user_id)}',{role:this.value})">${["OWNER","RESEARCHER","REVIEWER","ORDER_OPS","SUPPORT","FINANCE"].map(s=>`<option ${s===r.role?"selected":""}>${s}</option>`).join("")}</select>`],["Active",r=>`<button class="btn ghost sm" onclick="setUser('${esc(r.user_id)}',{active:${String(r.active)!=="true"}})">${String(r.active)==="true"?"Deactivate":"Activate"}</button>`]], l); },
+    $("view").innerHTML = `<button class="btn sm" onclick="userForm()" style="margin-bottom:12px">Add member</button>` + table([["Name",r=>esc(r.name)],["Email",r=>esc(r.email)],["Role",r=>`<select onchange="setUser('${esc(r.user_id)}',{role:this.value})">${["OWNER","MANAGER","RESEARCHER","REVIEWER","ORDER_OPS","SUPPORT","FINANCE"].map(s=>`<option ${s===r.role?"selected":""}>${s}</option>`).join("")}</select>`],["Password",r=>`<button class="btn ghost sm" onclick="resetPw('${esc(r.user_id)}')">Reset</button>`],["Active",r=>`<button class="btn ghost sm" onclick="setUser('${esc(r.user_id)}',{active:${String(r.active)!=="true"}})">${String(r.active)==="true"?"Deactivate":"Activate"}</button>`]], l); },
   async reports() { $("view").innerHTML = `<div class="bar"><div class="field"><label>From</label><input type="date" id="rf"></div><div class="field"><label>To</label><input type="date" id="rt"></div><button class="btn sm" id="rr">Run</button></div><div id="rout"></div>`;
     $("rr").onclick = async () => { const r = await api("reports.summary", {from:$("rf").value||null, to:$("rt").value?$("rt").value+"T23:59:59":null});
       $("rout").innerHTML = `<pre style="white-space:pre-wrap" class="card">${esc(JSON.stringify(r, null, 2))}</pre><p class="muted">Figures are actuals from recorded paid orders; items with no unit cost make profit incomplete. Product-level estimates live on the research board.</p>`; }; },
   async activity() { const l = await api("activity.list"); $("view").innerHTML = l.length ? table([["Time",r=>esc(String(r.ts).replace("T"," ").slice(0,16))],["Actor",r=>esc(r.actor_id)],["Action",r=>esc(r.action)],["Record",r=>esc(r.record_ref)],["Change",r=>esc(String(r.before_after).slice(0,80))]], l) : empty("No activity yet."); },
-  async settings() { const s = await api("settings.get");
-    $("view").innerHTML = table([["Setting",r=>esc(r[0])],["Value",r=>`<input value="${esc(r[1])}" style="min-width:260px" onchange="saveSetting('${esc(r[0])}',this.value)">`]], Object.entries(s)) + `<p class="muted" style="margin-top:12px">checkout_mode stays DEMO until gateway keys are in Script Properties. LIVE is refused otherwise.</p>`; },
+  async settings() {
+    const s = await api("settings.get"); let sec = {}; try { sec = await api("secrets.status"); } catch {}
+    const inp = (k,l,ph="",type="text") => `<div class="field"><label>${l}</label><input type="${type}" value="${esc(s[k]||"")}" placeholder="${esc(ph)}" onchange="saveSetting('${k}',this.value)"></div>`;
+    const sk = (n,l) => `<div class="field"><label>${l} ${sec[n]?'<span class="badge ok">saved</span>':'<span class="badge">not set</span>'}</label><input type="password" autocomplete="off" placeholder="${sec[n]?"Saved - type to replace":"Paste here"}" onchange="saveSecret('${n}',this)"></div>`;
+    const mode = s.checkout_mode || "DEMO";
+    $("view").innerHTML = `<h3>Brand</h3><div class="row">${inp("store_name","Store name")}${inp("tagline","Tagline")}${inp("announcement","Top announcement bar","e.g. Free gift wrap this week")}</div>
+    <h3 style="margin-top:20px">Contact and WhatsApp</h3><div class="row">${inp("whatsapp_number","WhatsApp number (with country code)","919876543210")}${inp("support_email","Support email")}${inp("instagram_url","Instagram link")}${inp("support_contact","Contact line shown in footer")}${inp("notify_email","Email for new-order alerts")}${inp("ga_id","Google Analytics ID (optional, like G-XXXXXXXXXX)")}</div>
+    <h3 style="margin-top:20px">Payments</h3>
+    <div class="field" style="max-width:460px"><label>Checkout mode</label><select onchange="saveMode(this.value)">${[["DEMO","DEMO - test only, no real orders"],["MANUAL","MANUAL - customer pays by UPI, you confirm"],["LIVE","LIVE - payment gateway (needs keys)"]].map(([v,t])=>`<option value="${v}" ${v===mode?"selected":""}>${t}</option>`).join("")}</select></div>
+    <div class="row">${inp("upi_id","Your UPI ID","name@bank")}${inp("upi_payee_name","Name shown to customer")}${inp("shipping_flat","Flat shipping charge (INR)","0","number")}${inp("free_shipping_above","Free shipping above (INR, 0 = off)","0","number")}</div>
+    <div class="field"><label>Payment instructions shown to customer</label><textarea rows="3" onchange="saveSetting('payment_instructions',this.value)">${esc(s.payment_instructions||"")}</textarea></div>
+    <h3 style="margin-top:20px">Payment gateway keys (Razorpay / Cashfree)</h3><p class="muted" style="margin:6px 0 10px">Stored privately on the server and never shown again. Automatic gateway verification is switched on only after you have a verified gateway account.</p>
+    <div class="row">${sk("GATEWAY_KEY_ID","Key ID")}${sk("GATEWAY_KEY_SECRET","Key secret")}${sk("WEBHOOK_TOKEN","Webhook token")}</div>
+    <h3 style="margin-top:20px">Business rules</h3><div class="row">${inp("target_margin_pct","Target margin %","30","number")}${inp("default_payment_fee_pct","Default payment fee %","2.4","number")}${inp("default_return_allowance_pct","Default return allowance %","3","number")}</div>`;
+  },
+  async reviews() { const l = await api("reviews.list");
+    $("view").innerHTML = `<div class="bar"><button class="btn sm" onclick="reviewForm()">Add genuine feedback you received</button></div><p class="muted" style="margin-bottom:12px">Customers write reviews from the product page using their order reference. New reviews wait here until you approve them.</p>` +
+      (l.length ? table([["Product",r=>esc(r.product_name)],["Rating",r=>"&#9733;".repeat(Number(r.rating))+"&#9734;".repeat(5-Number(r.rating))],["Review",r=>`<b>${esc(r.title||"")}</b><br>${esc(r.body)}`],["By",r=>esc(r.name)+(String(r.verified)==="true"?" (verified buyer)":"")],["Status",r=>badge(r.status)],["",r=>`<button class="btn sm" onclick="revSet('${esc(r.review_id)}','APPROVED')">Approve</button> <button class="btn ghost sm" onclick="revSet('${esc(r.review_id)}','REJECTED')">Reject</button>`]], l) : empty("No reviews yet.")); },
+  async coupons() { COUPONS = await api("coupons.list");
+    $("view").innerHTML = `<div class="bar"><button class="btn sm" onclick="couponForm()">New coupon</button></div>` + (COUPONS.length ? table([["Code",r=>esc(r.code)],["Discount",r=>r.type==="PERCENT"?esc(r.value)+"%":inr(r.value)],["Min order",r=>inr(r.min_order||0)],["Used",r=>esc(r.used||0)+(Number(r.max_uses)?" / "+esc(r.max_uses):"")],["Expires",r=>esc(String(r.expires||"").slice(0,10)||"never")],["Active",r=>badge(String(r.active).toUpperCase())],["",r=>`<button class="btn ghost sm" onclick="couponToggle('${esc(r.code)}')">${String(r.active)==="true"?"Disable":"Enable"}</button>`]], COUPONS) : empty("No coupons yet. Create one like WELCOME10.")); },
+  async content() { const s = await api("settings.get"); let faq = []; try { faq = JSON.parse(s.faq_json || "[]"); } catch {}
+    const t = (k,l,rows) => `<div class="field"><label>${l}</label><textarea rows="${rows}" onchange="saveSetting('${k}',this.value)">${esc(s[k]||"")}</textarea></div>`;
+    const i = (k,l) => `<div class="field"><label>${l}</label><input value="${esc(s[k]||"")}" onchange="saveSetting('${k}',this.value)"></div>`;
+    $("view").innerHTML = `<p class="muted" style="margin-bottom:12px">Everything here appears on your website. A box saves automatically when you click outside it.</p>
+    <h3>Home page</h3>${i("hero_title","Main headline")}${t("hero_text","Text under the headline",2)}${i("story_title","'Why us' heading")}${t("story_text","'Why us' paragraph",3)}${i("occasions","Gift occasions (separate with commas)")}
+    <h3 style="margin-top:20px">FAQ</h3><p class="muted">One per line, written as: Question | Answer</p><div class="field"><textarea id="faqbox" rows="7">${esc(faq.map(f => f.q + " | " + f.a).join("\n"))}</textarea></div><button class="btn sm" onclick="saveFaq()">Save FAQ</button>
+    <h3 style="margin-top:20px">Policy pages</h3><p class="muted">Leave a blank line between paragraphs. Start a line with ## for a sub-heading. Read these carefully and have a professional check the legal wording before you launch.</p>
+    ${t("policy_shipping","Shipping &amp; delivery",6)}${t("policy_returns","Returns, cancellations &amp; refunds",6)}${t("policy_privacy","Privacy policy",6)}${t("policy_terms","Terms &amp; conditions",6)}`; },
   async pricing() { $("view").innerHTML = `<div class="row">${[["selling_price","Selling price"],["supplier_price","Supplier price"],["sourcing_markup_pct","Sourcing markup %"],["packaging_cost","Packaging"],["shipping_cost","Shipping paid"],["payment_fee_pct","Payment fee %"],["return_allowance_pct","Returns allowance %"],["marketing_cost","Marketing per order"],["other_cost","Other"],["target_margin_pct","Target margin %"]].map(([k,l])=>`<div class="field"><label>${l}</label><input type="number" min="0" step="any" data-p="${k}"></div>`).join("")}</div><button class="btn sm" id="pc">Calculate</button><div id="pout" style="margin-top:16px"></div>`;
     $("pc").onclick = async () => { const i = {}; document.querySelectorAll("[data-p]").forEach(e => i[e.dataset.p] = e.value); const r = await api("pricing.calc", {input:i});
       $("pout").innerHTML = `<div class="kpis">${[["Landed cost",inr(r.landed_cost)],["Total variable cost",inr(r.total_variable_cost)],["Contribution",inr(r.contribution)],["Margin",r.margin_pct+"%"],["Break-even price",r.break_even_price===null?"n/a":inr(r.break_even_price)],["Suggested price",r.suggested_price===null?"n/a":inr(r.suggested_price)],["Price − supplier",inr(r.price_minus_supplier)]].map(([l,v])=>`<div class="kpi"><small>${l}</small><b>${v}</b></div>`).join("")}</div><p class="muted">Estimate based on the inputs above.</p>`; }; }
@@ -120,7 +147,7 @@ const STAT = ["NEW","RESEARCHING","SUPPLIER_CHECK","COSTING","REVIEW","APPROVED"
 const CHECK = ["supplier_checked","price_confirmed","availability_confirmed","photos_licensed","claims_verified","delivery_terms_recorded","packaging_assessed","margin_calculated","returns_risk_reviewed","copy_checked"];
 function openRecord(id) { const r = RESEARCH.find(x => x.product_id === id); if (!r) return; let cl = {}; try { cl = JSON.parse(r.checklist_json || "{}"); } catch {}
   modal(`<h3>${esc(r.name)}</h3><p class="muted">${esc(r.product_id)} · ${badge(r.status)} · est. margin ${r.pricing.margin_pct}% · score ${r.score_total}</p>
-  <div class="row">${[["supplier_id","Supplier ID"],["supplier_price","Supplier price"],["selling_price","Selling price"],["packaging_cost","Packaging"],["shipping_cost","Shipping"],["payment_fee_pct","Fee %"],["return_allowance_pct","Returns %"],["marketing_cost","Marketing"],["image_url","Image URL"],["delivery_estimate","Delivery estimate"],["stock_confirmed","Stock confirmed (true/false)"],["quality_verified","Quality (passed/failed/pending)"],["public_description","Customer-facing description"],["risk_notes","Risk notes"],["ip_concerns","IP concerns"],["reviewer_notes","Reviewer notes"]].map(([k,l])=>`<div class="field"><label>${l}</label><input data-f="${k}" value="${esc(r[k])}"></div>`).join("")}</div>
+  <p style="margin:10px 0"><button class="btn sm" onclick="listingForm('${esc(r.product_id)}')">Photos, video &amp; product page</button></p><div class="row">${[["supplier_id","Supplier ID"],["supplier_price","Supplier price"],["selling_price","Selling price"],["packaging_cost","Packaging"],["shipping_cost","Shipping"],["payment_fee_pct","Fee %"],["return_allowance_pct","Returns %"],["marketing_cost","Marketing"],["image_url","Image URL"],["delivery_estimate","Delivery estimate"],["stock_confirmed","Stock confirmed (true/false)"],["quality_verified","Quality (passed/failed/pending)"],["public_description","Customer-facing description"],["risk_notes","Risk notes"],["ip_concerns","IP concerns"],["reviewer_notes","Reviewer notes"]].map(([k,l])=>`<div class="field"><label>${l}</label><input data-f="${k}" value="${esc(r[k])}"></div>`).join("")}</div>
   <h3 style="margin:12px 0">Scores (0–5)</h3><div class="row">${["relevance","trend","supplier","margin","giftability","fulfilment"].map(k=>`<div class="field"><label>${k}</label><input type="number" min="0" max="5" data-f="score_${k}" value="${esc(r["score_"+k])}"></div>`).join("")}</div>
   <button class="btn sm" id="sv">Save changes</button>
   <h3 style="margin:16px 0 8px">Approval checklist (reviewers)</h3>${CHECK.map(k=>`<label style="text-transform:none;letter-spacing:0"><input type="checkbox" style="width:auto" data-c="${k}" ${cl[k]?"checked":""}> ${k.replace(/_/g," ")}</label>`).join("")}<button class="btn ghost sm" id="sc" style="margin-top:8px">Save checklist</button>
@@ -137,10 +164,91 @@ function refundForm() { modal(`<h3>Record refund</h3>${F("r_o","Order ID")}${F("
 function taskForm() { modal(`<h3>New task</h3>${F("t_t","Title")}${F("t_d","Description")}${F("t_a","Assignee user ID")}${F("t_due","Due date","date")}<button class="btn" id="t_go">Create</button> <button class="btn ghost" onclick="closeModal()">Cancel</button>`);
   $("t_go").onclick = () => guarded(async () => { await api("tasks.save", {record:{title:$("t_t").value,description:$("t_d").value,assignee_id:$("t_a").value||undefined,due_date:$("t_due").value}}); closeModal(); go("tasks"); }); }
 const setTask = (id, status) => guarded(async () => { await api("tasks.save", {record:{task_id:id,status}}); toast("Updated"); });
-function userForm() { modal(`<h3>Add team member</h3>${F("u_n","Name")}${F("u_e","Email","email")}<div class="field"><label>Role</label><select id="u_r">${["RESEARCHER","REVIEWER","ORDER_OPS","SUPPORT","FINANCE","OWNER"].map(s=>`<option>${s}</option>`).join("")}</select></div><button class="btn" id="u_go">Create</button> <button class="btn ghost" onclick="closeModal()">Cancel</button>`);
+function userForm() { modal(`<h3>Add team member</h3>${F("u_n","Name")}${F("u_e","Email","email")}<div class="field"><label>Role</label><select id="u_r">${["MANAGER","RESEARCHER","REVIEWER","ORDER_OPS","SUPPORT","FINANCE","OWNER"].map(s=>`<option>${s}</option>`).join("")}</select></div><button class="btn" id="u_go">Create</button> <button class="btn ghost" onclick="closeModal()">Cancel</button>`);
   $("u_go").onclick = () => guarded(async () => { const r = await api("users.create", {name:$("u_n").value,email:$("u_e").value,role:$("u_r").value}); modal(`<h3>Member created</h3><p>Temporary password (shown once — share privately):</p><pre class="card">${esc(r.temp_password)}</pre><button class="btn" onclick="closeModal();go('team')">Done</button>`); }); }
 const setUser = (id, patch) => guarded(async () => { await api("users.update", {user_id:id, ...patch}); toast("Updated"); go("team"); });
 const saveSetting = (key, value) => guarded(async () => { await api("settings.set", {key, value}); toast("Saved"); });
 const exportSheet = sheet => guarded(async () => { csvDownload(sheet + ".csv", await api("export.csv", {sheet})); });
 
 if (S && S.token) start();
+
+
+// ---- password change (own) and reset (owner -> member) ----
+function pwForm() {
+  modal(`<h3>Change password</h3>${F("pw_c","Current password","password")}${F("pw_n","New password (min 10 characters)","password")}${F("pw_n2","Repeat new password","password")}<button class="btn" id="pw_go">Change</button> <button class="btn ghost" onclick="closeModal()">Cancel</button>`);
+  $("pw_go").onclick = () => guarded(async () => {
+    if ($("pw_n").value !== $("pw_n2").value) throw new Error("New passwords do not match");
+    await api("auth.updatePassword", {current_password:$("pw_c").value, new_password:$("pw_n").value});
+    closeModal(); toast("Password changed. Please sign in again."); setTimeout(logout, 1200);
+  });
+}
+const resetPw = id => { if (!confirm("Reset this member's password? They will be signed out.")) return; guarded(async () => { const r = await api("users.resetPassword", {user_id:id}); modal(`<h3>Password reset</h3><p>New temporary password (shown once -- share privately):</p><pre class="card">${esc(r.temp_password)}</pre><button class="btn" onclick="closeModal()">Done</button>`); }); };
+$("pw").onclick = pwForm;
+
+
+/* ---- WhatsApp + payment confirmation on orders ---- */
+function waLink(phone, text) { const x = String(phone||"").replace(/\D/g,"").slice(-10); return x.length === 10 ? `https://wa.me/91${x}?text=${encodeURIComponent(text)}` : ""; }
+function waText(r) { const n = r.customer_name || "there", id = r.order_id;
+  if (r.payment_status !== "PAID" && String(r.is_test) !== "true") return `Hi ${n}, thank you for your order ${id} (${inr(r.total)}). Please complete the UPI payment and send the screenshot / UTR here so we can confirm it.`;
+  if (r.order_status === "SHIPPED") return `Hi ${n}, your order ${id} has been shipped.${r.tracking_number ? " Tracking: " + r.tracking_number + "." : ""}`;
+  if (r.order_status === "DELIVERED") return `Hi ${n}, your order ${id} was delivered. We hope you love it! Could you share a photo or a review with us?`;
+  return `Hi ${n}, update on your order ${id}: payment received and we are preparing it.`; }
+function orderActions(r) { const u = waLink(r.phone, waText(r));
+  return `<button class="btn ghost sm" onclick="orderForm('${esc(r.order_id)}')">Update</button> ` + (u ? `<a class="btn ghost sm" target="_blank" rel="noopener" href="${u}">WhatsApp</a> ` : "") +
+    (r.payment_status !== "PAID" && String(r.is_test) !== "true" ? `<button class="btn sm" onclick="payForm('${esc(r.order_id)}',${Number(r.total)||0})">Confirm payment</button>` : ""); }
+function payForm(id, total) { modal(`<h3>Confirm payment</h3><p class="muted">Order ${esc(id)} - amount ${inr(total)}. Check that the money is in your bank/UPI app first.</p>${F("pf_ref","UPI reference / UTR number")}<button class="btn" id="pf_go">Mark as paid</button> <button class="btn ghost" onclick="closeModal()">Cancel</button>`);
+  $("pf_go").onclick = () => guarded(async () => { await api("orders.recordPayment", {order_id:id, reference:$("pf_ref").value}); toast("Payment confirmed"); closeModal(); go("orders"); }); }
+
+/* ---- settings helpers ---- */
+const saveMode = v => guarded(async () => { try { await api("settings.set", {key:"checkout_mode", value:v}); toast("Saved"); } finally { go("settings"); } });
+const saveSecret = (n, el) => guarded(async () => { await api("secrets.set", {name:n, value:el.value}); el.value = ""; toast("Saved securely"); go("settings"); });
+
+/* ---- listing studio: photos, video, product page text ---- */
+let LST = null;
+function shrink(file) { return new Promise((res, rej) => { const im = new Image(), u = URL.createObjectURL(file);
+  im.onload = () => { const k = Math.min(1, 1600 / Math.max(im.width, im.height)), c = document.createElement("canvas"); c.width = Math.round(im.width*k); c.height = Math.round(im.height*k);
+    const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0,0,c.width,c.height); x.drawImage(im,0,0,c.width,c.height); URL.revokeObjectURL(u);
+    c.toBlob(b => { const f = new FileReader(); f.onload = () => res(f.result.split(",")[1]); f.onerror = rej; f.readAsDataURL(b); }, "image/jpeg", .86); };
+  im.onerror = () => rej(new Error("Could not read that image")); im.src = u; }); }
+function drawGal() { $("ls_g").innerHTML = LST.g.length ? LST.g.map((u,i) => `<div class="gi"><img src="${esc(u)}" alt=""><div>${i===0?'<span class="badge ok">Cover</span>':`<button class="btn ghost sm" onclick="galCover(${i})">Make cover</button>`} <button class="btn ghost sm" onclick="galDel(${i})">Remove</button></div></div>`).join("") : '<p class="muted">No photos yet.</p>'; }
+const galCover = i => { LST.g.unshift(LST.g.splice(i,1)[0]); drawGal(); };
+const galDel = i => { LST.g.splice(i,1); drawGal(); };
+function listingForm(id) {
+  const r = RESEARCH.find(x => x.product_id === id); if (!r) return;
+  let g = []; try { g = JSON.parse(r.gallery_json || "[]"); } catch {} if (!Array.isArray(g)) g = []; if (!g.length && r.image_url) g = [r.image_url];
+  LST = {id, g}; const nl = t => String(t||"").split("\u00b6").join("\n");
+  modal(`<h3>Product page: ${esc(r.name)}</h3><p class="muted">The first photo is the cover. Use bright, clear photos (JPG/PNG/WebP). They are saved to your Google Drive automatically.</p>
+  <div id="ls_g" class="gal"></div>
+  <div class="bar"><label class="btn sm" style="cursor:pointer;margin:0">Upload photos<input id="ls_f" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden></label><div class="field"><input id="ls_u" placeholder="or paste an image link"></div><button class="btn ghost sm" id="ls_add">Add link</button></div>
+  <div class="field"><label>Video link (YouTube or Google Drive share link)</label><input id="ls_v" value="${esc(r.video_url||"")}"></div>
+  <div class="field"><label>Badge (optional)</label><input id="ls_b" value="${esc(r.badge||"")}" placeholder="Bestseller / New / Limited"></div>
+  <label style="text-transform:none;letter-spacing:0;display:flex;gap:10px;align-items:center;margin-bottom:12px"><input type="checkbox" id="ls_ft" style="width:auto" ${String(r.featured)==="true"?"checked":""}> Show this product on the home page (featured)</label>
+  <div class="field"><label>Short description (shown on cards)</label><textarea id="ls_d" rows="2">${esc(r.public_description||"")}</textarea></div>
+  <div class="field"><label>Highlights (one per line)</label><textarea id="ls_h" rows="4">${esc(nl(r.highlights))}</textarea></div>
+  <div class="field"><label>Full details (one paragraph per line)</label><textarea id="ls_l" rows="5">${esc(nl(r.long_description))}</textarea></div>
+  <button class="btn" id="ls_s">Save product page</button> <a class="btn ghost" target="_blank" rel="noopener" href="../site/product.html?id=${encodeURIComponent(id)}">Preview</a> <button class="btn ghost" onclick="closeModal()">Close</button>`);
+  drawGal();
+  $("ls_add").onclick = () => { const u = $("ls_u").value.trim(); if (!/^https:\/\//.test(u)) return toast("Link must start with https://", true); if (LST.g.length >= 8) return toast("Maximum 8 photos", true); LST.g.push(u); $("ls_u").value = ""; drawGal(); };
+  $("ls_f").onchange = e => guarded(async () => { for (const f of [...e.target.files]) { if (LST.g.length >= 8) { toast("Maximum 8 photos", true); break; } toast("Uploading " + f.name + " ..."); const data = await shrink(f); const x = await api("media.create", {mime:"image/jpeg", data}); LST.g.push(x.url); drawGal(); } e.target.value = ""; toast("Upload done"); });
+  $("ls_s").onclick = () => guarded(async () => { const pl = t => t.split(/\r?\n/).map(x => x.trim()).filter(Boolean).join("\u00b6");
+    const patch = {gallery_json:JSON.stringify(LST.g), image_url:LST.g[0]||"", video_url:$("ls_v").value.trim(), badge:$("ls_b").value.trim(), featured:$("ls_ft").checked?"true":"false", public_description:$("ls_d").value, highlights:pl($("ls_h").value), long_description:pl($("ls_l").value)};
+    await api("research.update", {product_id:id, patch}); Object.assign(r, patch); toast("Product page saved"); });
+}
+document.head.insertAdjacentHTML("beforeend", "<style>.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin:10px 0}.gi img{width:100%;aspect-ratio:1;object-fit:cover;border:1px solid var(--line);margin-bottom:6px}.gi{font-size:.7rem}</style>");
+
+
+/* ---- reviews, coupons, content helpers ---- */
+let COUPONS = [];
+const revSet = (id, st) => guarded(async () => { await api("reviews.setStatus", {review_id:id, status:st}); toast("Updated"); go("reviews"); });
+async function reviewForm() { const l = (await api("research.list")).filter(r => r.status === "PUBLISHED");
+  modal(`<h3>Add feedback you received</h3><p class="muted">Only add genuine feedback that a real customer gave you (for example on WhatsApp). Do not invent reviews.</p>
+  <div class="field"><label>Product</label><select id="rv_p">${l.map(r => `<option value="${esc(r.product_id)}">${esc(r.name)}</option>`).join("")}</select></div>
+  ${F("rv_n","Customer name")}<div class="field"><label>Rating</label><select id="rv_r">${[5,4,3,2,1].map(n => `<option>${n}</option>`).join("")}</select></div>${F("rv_t","Title (optional)")}<div class="field"><label>Review text</label><textarea id="rv_b" rows="4"></textarea></div>
+  <button class="btn" id="rv_go">Add review</button> <button class="btn ghost" onclick="closeModal()">Cancel</button>`);
+  $("rv_go").onclick = () => guarded(async () => { await api("reviews.create", {product_id:$("rv_p").value, name:$("rv_n").value, rating:$("rv_r").value, title:$("rv_t").value, body:$("rv_b").value}); toast("Review added"); closeModal(); go("reviews"); }); }
+function couponForm() { modal(`<h3>New coupon</h3>${F("c_code","Code (letters/numbers, e.g. WELCOME10)")}<div class="field"><label>Type</label><select id="c_type"><option value="PERCENT">Percent off</option><option value="FLAT">Flat amount off (INR)</option></select></div>
+  ${F("c_val","Discount value","number")}${F("c_min","Minimum order (INR, optional)","number")}${F("c_max","Max total uses (0 = unlimited)","number")}${F("c_exp","Expiry date (optional)","date")}
+  <button class="btn" id="c_go">Save coupon</button> <button class="btn ghost" onclick="closeModal()">Cancel</button>`);
+  $("c_go").onclick = () => guarded(async () => { await api("coupons.update", {record:{code:$("c_code").value, type:$("c_type").value, value:$("c_val").value, min_order:$("c_min").value, max_uses:$("c_max").value, expires:$("c_exp").value, active:true}}); toast("Coupon saved"); closeModal(); go("coupons"); }); }
+const couponToggle = code => guarded(async () => { const c = COUPONS.find(x => x.code === code); if (!c) return; await api("coupons.update", {record:{...c, active:String(c.active) !== "true"}}); toast("Updated"); go("coupons"); });
+const saveFaq = () => { const l = $("faqbox").value.split("\n").map(x => x.trim()).filter(Boolean).map(x => { const i = x.indexOf("|"); return i < 0 ? null : {q:x.slice(0,i).trim(), a:x.slice(i+1).trim()}; }).filter(f => f && f.q && f.a); saveSetting("faq_json", JSON.stringify(l)); };

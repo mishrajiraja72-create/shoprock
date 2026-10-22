@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Checkout — SHOPROCK</title><link rel="stylesheet" href="css/shoprock.css"></head><body>
+<title>Checkout — SHOPROCK</title><link rel="stylesheet" href="css/shoprock.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/premium.css"></head><body>
 <div id="hdr"></div>
 <section><div class="container" style="max-width:720px"><h2 style="margin-bottom:16px">Checkout</h2>
 <div id="mode" class="notice" style="margin-bottom:24px">Checking checkout status…</div>
@@ -11,6 +11,7 @@
  <div class="row"><div class="field"><label for="city">City</label><input id="city"></div><div class="field"><label for="state">State</label><input id="state"></div><div class="field"><label for="pin">PIN code</label><input id="pin" inputmode="numeric" maxlength="6"></div></div>
  <div class="field"><label for="gift_message">Gift message (optional)</label><textarea id="gift_message" rows="2" maxlength="300"></textarea></div>
  <div id="summary" class="card" style="margin-bottom:16px"></div>
+ <div class="field" style="max-width:380px"><label for="coupon">Coupon code (optional)</label><div style="display:flex;gap:8px"><input id="coupon" autocomplete="off"><button type="button" class="btn ghost sm" id="capply">Apply</button></div><div id="cmsg" class="muted" style="margin-top:6px"></div></div>
  <label style="text-transform:none;letter-spacing:0;display:flex;gap:10px;align-items:flex-start"><input type="checkbox" id="policy" style="width:auto;margin-top:4px"> I have read the <a href="policies.html#shipping">shipping</a>, <a href="policies.html#returns">returns</a> and <a href="policies.html#terms">terms</a>.</label><br>
  <button class="btn" id="go">Place order</button>
 </form><div id="done"></div></div></section>
@@ -23,8 +24,26 @@ const $=id=>document.getElementById(id);let idem=sessionStorage.getItem("sr_idem
   const sub=rows.reduce((a,r)=>a+r.p.price*r.i.qty,0);
   $("summary").innerHTML=rows.map(r=>`<div>${esc(r.p.name)} × ${r.i.qty} — ${inr(r.p.price*r.i.qty)}</div>`).join("")+`<hr style="border-color:var(--line);margin:10px 0"><b>Items: ${inr(sub)}</b><div class="muted">Shipping and final payable amount are confirmed by the server when you place the order.</div>`;
  }catch(e){$("summary").innerHTML='<div class="errorbox">Could not load order summary.</div>';}
- $("mode").innerHTML="<b>DEMO checkout.</b> No payment is collected and no real order is created until the store owner connects a payment gateway.";
+ const cfg=await loadConfig(),md=cfg.checkout_mode;$("mode").innerHTML=md==="MANUAL"?"<b>Pay by UPI.</b> Place your order, then complete the UPI payment shown on the next screen. We confirm your order after verifying the payment.":md==="LIVE"?"<b>Secure checkout.</b> You will complete payment right after placing the order.":"<b>DEMO checkout.</b> No payment is collected and no real order is created until the store owner connects a payment gateway.";
 })();
+
+function showDone(r){
+ const wrap=(inner)=>`<div class="card"><p class="eyebrow">Order reference</p><h3>${esc(r.order_id)}</h3>${inner}<p class="muted" style="margin-top:12px">Track with your order reference and the last 4 digits of your mobile. <a href="track.html">Track order</a></p></div>`;
+ if(r.mode==="MANUAL"&&r.upi_id){
+  const amt=Number(r.total).toFixed(2),note=encodeURIComponent("Order "+r.order_id),
+   link=`upi://pay?pa=${encodeURIComponent(r.upi_id)}&pn=${encodeURIComponent(r.upi_payee_name||"SHOPROCK")}&am=${amt}&cu=INR&tn=${note}`,
+   wa=waUrl(`Hi! I placed order ${r.order_id} (${inr(r.total)}) and have paid. UTR / reference: `,r.whatsapp_number);
+  $("done").innerHTML=wrap(`<p style="margin:12px 0">${esc(r.note)}</p><div class="paybox"><div><p class="muted">Amount to pay</p><h3 style="margin-bottom:12px">${inr(r.total)}</h3><div class="upi" id="upiid">${esc(r.upi_id)}</div>
+   <p style="margin:14px 0"><a class="btn" href="${esc(link)}">Pay with UPI app</a> <button class="btn ghost" type="button" id="cp">Copy UPI ID</button></p></div><div><div class="qr" id="qr"></div><p class="muted" style="margin-top:8px;font-size:.8rem">Scan with any UPI app</p></div></div>
+   <p class="muted" style="margin:16px 0">${esc(r.payment_instructions||"")}</p>${wa?`<a class="btn wa" target="_blank" rel="noopener" href="${esc(wa)}">I have paid - share on WhatsApp</a>`:""}
+   <p class="muted" style="margin-top:12px">Payment status: <span class="badge warn">Awaiting payment</span></p>`);
+  $("cp").onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(r.upi_id);toast("UPI ID copied");};
+  const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";s.onload=()=>{try{new QRCode($("qr"),{text:link,width:168,height:168});}catch{}};document.head.appendChild(s);
+ }else{
+  $("done").innerHTML=wrap(`<p style="margin:12px 0">${esc(r.note)}</p><p class="muted">Payment status: <span class="badge warn">Unpaid</span></p>`);
+ }
+}
+$("capply").onclick=async()=>{const code=$("coupon").value.trim();if(!code){$("cmsg").textContent="";return;}try{const r=await api("public.coupon",{code,items:Cart.get()});$("cmsg").innerHTML=`<span style="color:var(--ok)">Coupon ${esc(r.code)} applied: you save ${inr(r.discount)}.</span>`;}catch(e){$("cmsg").innerHTML=`<span style="color:var(--danger)">${esc(e.message)}</span>`;}};
 $("f").onsubmit=async e=>{e.preventDefault();document.querySelectorAll(".field.err").forEach(x=>{x.classList.remove("err");x.querySelector(".errmsg")?.remove()});
  const v=id=>$(id).value.trim(),bad=[];const set=(id,m)=>{bad.push(id);const f=$(id).closest(".field");f.classList.add("err");f.insertAdjacentHTML("beforeend",`<div class="errmsg">${m}</div>`)};
  if(v("customer_name").length<2)set("customer_name","Enter your name");
@@ -33,8 +52,8 @@ $("f").onsubmit=async e=>{e.preventDefault();document.querySelectorAll(".field.e
  if(v("address").length<10)set("address","Enter the complete address");if(!v("city"))set("city","Required");if(!v("state"))set("state","Required");if(!/^\d{6}$/.test(v("pin")))set("pin","6-digit PIN");
  if(!$("policy").checked){toast("Please accept the policies to continue.",1);return;} if(bad.length)return;
  $("go").disabled=true;
- try{const r=await api("public.createOrder",{idempotency_key:idem,customer_name:v("customer_name"),phone:v("phone"),email:v("email"),address:v("address"),city:v("city"),state:v("state"),pin:v("pin"),gift_message:v("gift_message"),accepted_policies:true,items:Cart.get()});
+ try{const r=await api("public.createOrder",{idempotency_key:idem,customer_name:v("customer_name"),phone:v("phone"),email:v("email"),address:v("address"),city:v("city"),state:v("state"),pin:v("pin"),gift_message:v("gift_message"),accepted_policies:true,coupon_code:v("coupon"),items:Cart.get()});
   Cart.clear();try{sessionStorage.removeItem("sr_idem")}catch{}
-  $("f").style.display="none";$("done").innerHTML=`<div class="card"><p class="eyebrow">Order reference</p><h3>${esc(r.order_id)}</h3><p style="margin:12px 0">${esc(r.note)}</p><p class="muted">Payment status: <span class="badge warn">Unpaid</span></p><p class="muted">Track with your order reference and the last 4 digits of your mobile. <a href="track.html">Track order</a></p></div>`;
+  $("f").style.display="none";showDone(r);
  }catch(err){toast(err.message,1);$("go").disabled=false;}};
 </script></body></html>

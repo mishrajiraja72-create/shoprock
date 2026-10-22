@@ -1,21 +1,16 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Policies — SHOPROCK</title><link rel="stylesheet" href="css/shoprock.css"></head><body>
+<title>Policies -- SHOPROCK</title><link rel="stylesheet" href="css/shoprock.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/premium.css"></head><body>
 <div id="hdr"></div>
-<section><div class="container" style="max-width:780px">
-<div class="notice" style="margin-bottom:32px">Every <span class="owner-review">[OWNER REVIEW]</span> item below is a placeholder. Fill in real facts and have a qualified professional check legal text before going live. Nothing here is a legal commitment until you edit and approve it.</div>
-
-<h2 id="shipping">Shipping &amp; delivery</h2>
-<p class="muted">Dispatch time: <span class="owner-review">[OWNER REVIEW: confirmed from suppliers]</span>. Delivery estimate: shown on each product page. Shipping charge: <span class="owner-review">[OWNER REVIEW]</span>. Tracking details are shared once an order ships.</p>
-<h2 id="returns" style="margin-top:48px">Returns, cancellations &amp; refunds</h2>
-<p class="muted">Cancellation window: <span class="owner-review">[OWNER REVIEW]</span>. Damaged or wrong item process: <span class="owner-review">[OWNER REVIEW: evidence required, timeline]</span>. Refunds go to the original payment method within <span class="owner-review">[OWNER REVIEW]</span> days of approval.</p>
-<h2 id="privacy" style="margin-top:48px">Privacy policy</h2>
-<p class="muted">We collect only what is needed to deliver your order: name, mobile, optional email, and delivery address. We never store card or UPI details; payments are handled by the payment gateway. Data is shared with suppliers/couriers only to fulfil your order. Contact for data requests: <span class="owner-review">[OWNER REVIEW]</span>. Business name/address: <span class="owner-review">[OWNER REVIEW]</span>.</p>
-<h2 id="terms" style="margin-top:48px">Terms &amp; conditions</h2>
-<p class="muted">Legal entity, GST/registration details, jurisdiction and liability terms: <span class="owner-review">[OWNER REVIEW — not invented here]</span>.</p>
-<h2 id="contact" style="margin-top:48px">Contact &amp; support</h2>
-<p class="muted"><span class="owner-review">[OWNER REVIEW: email, phone, support hours]</span></p>
-<h2 id="faq" style="margin-top:48px">FAQ</h2>
-<details><summary>When will my order ship?</summary><p>See Shipping &amp; delivery above.</p></details>
-<details><summary>How do I track an order?</summary><p>Use the <a href="track.html">tracking page</a> with your order reference.</p></details>
-</div></section>
-<div id="ftr"></div><script src="js/common.js"></script></body></html>
+<section><div class="container" style="max-width:780px" id="pol"><div class="loading">Loading</div></div></section>
+<div id="ftr"></div><script src="js/common.js"></script>
+<script>
+const fmt=t=>String(t||"").split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean).map(x=>x.startsWith("## ")?`<h3 style="margin:18px 0 6px">${esc(x.slice(3))}</h3>`:`<p class="muted" style="margin-top:10px">${esc(x).replace(/\n/g,"<br>")}</p>`).join("");
+(async()=>{const o=document.getElementById("pol");
+ try{const [c]=await Promise.all([api("public.content"),loadConfig()]);
+  const sec=(id,t,b,first)=>`<h2 id="${id}" style="${first?"":"margin-top:48px"}">${t}</h2>${b}`;
+  const contact=[SITE.whatsapp_number?`<a href="${waUrl("Hi! I have a question.")}" target="_blank" rel="noopener">Chat with us on WhatsApp</a>`:"",SITE.support_email?`Email: <a href="mailto:${esc(SITE.support_email)}">${esc(SITE.support_email)}</a>`:"",SITE.support_contact&&!/OWNER REVIEW/.test(SITE.support_contact)?esc(SITE.support_contact):""].filter(Boolean).join("<br>");
+  const faq=(SITE.faq||[]).map(f=>`<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join("")+`<details><summary>How do I track an order?</summary><p>Use the <a href="track.html">tracking page</a> with your order reference.</p></details>`;
+  o.innerHTML=sec("shipping","Shipping &amp; delivery",fmt(c.policy_shipping),1)+sec("returns","Returns, cancellations &amp; refunds",fmt(c.policy_returns))+sec("privacy","Privacy policy",fmt(c.policy_privacy))+sec("terms","Terms &amp; conditions",fmt(c.policy_terms))+sec("contact","Contact &amp; support",`<p class="muted" style="margin-top:10px">${contact||"Use the contact details in the footer."}</p>`)+sec("faq","FAQ",faq);
+  if(location.hash){const e=document.querySelector(location.hash);if(e)e.scrollIntoView();}
+ }catch(e){o.innerHTML='<div class="errorbox">Could not load this page. Please try again shortly.</div>';}})();
+</script></body></html>

@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Shop — SHOPROCK</title><meta name="description" content="Browse the SHOPROCK gift collection."><link rel="stylesheet" href="css/shoprock.css"></head><body>
+<title>Shop — SHOPROCK</title><meta name="description" content="Browse the SHOPROCK gift collection."><link rel="stylesheet" href="css/shoprock.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/premium.css"></head><body>
 <div id="hdr"></div>
 <section id="collection"><div class="container"><h2 style="margin-bottom:24px">The collection</h2>
  <div class="row" style="margin-bottom:24px">
@@ -15,7 +15,7 @@ let all=[];const $=id=>document.getElementById(id);
 function render(){let l=all.filter(p=>p.available);const q=$("q").value.toLowerCase(),c=$("cat").value,m=Number($("max").value);
  if(q)l=l.filter(p=>(p.name+" "+(p.occasion||"")+" "+(p.category||"")).toLowerCase().includes(q));if(c)l=l.filter(p=>p.category===c);if(m)l=l.filter(p=>p.price<=m);
  if($("sort").value==="lo")l.sort((a,b)=>a.price-b.price);if($("sort").value==="hi")l.sort((a,b)=>b.price-a.price);
- $("out").innerHTML=!all.length?'<div class="empty" style="grid-column:1/-1">Our first collection is being prepared. Check back soon.</div>':!l.length?'<div class="empty" style="grid-column:1/-1">No gifts match those filters. Try clearing them.</div>':l.map(x=>`<a class="pcard" href="product.html?id=${encodeURIComponent(x.product_id)}"><div class="ph"><img loading="lazy" src="${esc(x.image_url)}" alt="${esc(x.name)}"></div><div class="body"><div>${esc(x.name)}</div><div class="price">${inr(x.price)}</div></div></a>`).join("");}
+ $("out").innerHTML=!all.length?'<div class="empty" style="grid-column:1/-1">Our first collection is being prepared. Check back soon.</div>':!l.length?'<div class="empty" style="grid-column:1/-1">No gifts match those filters. Try clearing them.</div>':l.map(productCard).join("");initReveal();}
 (async()=>{const u=new URLSearchParams(location.search);if(u.get("q"))$("q").value=u.get("q");
  try{all=await loadProducts();[...new Set(all.map(p=>p.category).filter(Boolean))].forEach(c=>$("cat").add(new Option(c,c)));render();}
  catch(e){$("out").innerHTML='<div class="errorbox" style="grid-column:1/-1">The collection could not be loaded. Please try again shortly.</div>';}
