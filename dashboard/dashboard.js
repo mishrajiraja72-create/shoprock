@@ -153,7 +153,7 @@ const VIEWS = {
     const [st, pr] = await Promise.all([api("settings.get"), api("research.list")]); let d = {}; try { d = JSON.parse(st.site_json || "{}"); } catch {}
     const g = d.gift || {}, rc = d.rec || {}, ad = d.addons || {};
     PL = pr.filter(r => r.status === "PUBLISHED").map(r => ({id:r.product_id, name:r.name, price:r.selling_price, cat:r.category || ""}));
-    ST = {g:{enabled:g.enabled !== false, custom:g.custom !== false, show:g.show !== false, max:g.max || 200, list:(g.list && g.list.length ? g.list : DN).map(x => ({...x}))}, rec:{max:rc.max || 3, map:JSON.parse(JSON.stringify(rc.map || {}))}, addons:{max:ad.max || 2, items:(ad.items || []).map(x => ({...x}))}, cur:PL[0] ? PL[0].id : ""};
+    ST = {g:{enabled:g.enabled !== false, custom:g.custom !== false, show:g.show !== false, max:g.max || 200, list:(g.list && g.list.length ? g.list : DN).map(x => ({...x}))}, rec:{max:rc.max || 3, map:JSON.parse(JSON.stringify(rc.map || {}))}, addons:{max:ad.max || 2, items:(ad.items || []).map(x => ({...x}))}, after:(d.after || []).map(x => ({...x})), cur:PL[0] ? PL[0].id : ""};
     DIRTY = false; window.onbeforeunload = () => DIRTY ? "Unsaved changes" : undefined; drawGifts();
   },
   async reviews() { const l = await api("reviews.list");
@@ -206,6 +206,53 @@ function userForm() { modal(`<h3>Add team member</h3>${F("u_n","Name")}${F("u_e"
 const setUser = (id, patch) => guarded(async () => { await api("users.update", {user_id:id, ...patch}); toast("Updated"); go("team"); });
 const saveSetting = (key, value) => guarded(async () => { await api("settings.set", {key, value}); toast("Saved"); });
 const exportSheet = sheet => guarded(async () => { csvDownload(sheet + ".csv", await api("export.csv", {sheet})); });
+
+
+/* ===== v3 sections: product details/variants, bundles, analytics, reminders =====
+   details + bundles save into site_json (existing persistence path -> live storefront). analytics + reminders need BACKEND-PATCH-v3.gs. */
+MENU.push(["details","Product details & variants"],["bundles","Bundles"],["analytics","Analytics"],["reminders","Reminders & consent"]);
+ROLE_MENU.OWNER = MENU.map(m => m[0]);
+async function readSite() { const st = await api("settings.get"); let d = {}; try { d = JSON.parse(st.site_json || "{}"); } catch {} return d; }
+async function writeSite(fn) { const d = await readSite(); fn(d); await api("settings.set", {key:"site_json", value:JSON.stringify(d)}); try { sessionStorage.removeItem("sr_cfg"); } catch {} }
+const slug = x => String(x).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30);
+const pubProducts = async () => (await api("research.list")).filter(r => r.status === "PUBLISHED").map(r => ({id:r.product_id, name:r.name, price:Number(r.selling_price) || 0}));
+let DETP = [], DETD = {};
+VIEWS.details = async () => {
+  [DETP, DETD] = await Promise.all([pubProducts(), readSite()]);
+  const meta = DETD.meta || {};
+  $("view").innerHTML = `<p class="muted" style="margin-bottom:12px">Story, occasion and variant fields for each published product. Saving updates the live product page.</p><div class="notice" style="margin-bottom:14px">Variant <b>prices</b> only apply at checkout after BACKEND-PATCH-v3 is deployed. Until then every variant sells at the product price, and the storefront shows variants as options only.</div>` +
+    (DETP.length ? DETP.map(p => { const m = meta[p.id] || {}; return `<details class="card" style="margin-bottom:12px" data-pid="${esc(p.id)}"><summary><b>${esc(p.name)}</b> <span class="muted">${inr(p.price)}</span></summary>
+      <div class="row">${[["occasion","Occasion (e.g. Anniversary)"],["recipient","Perfect for (e.g. Partner)"],["gift_suitability","Gift suitability line"],["tags","Tags (comma separated)"]].map(([k,l]) => `<div class="field"><label>${l}</label><input data-m="${k}" value="${esc(k === "tags" ? (m.tags || []).join(", ") : (m[k] || ""))}"></div>`).join("")}</div>
+      <div class="field"><label>Product story (shown on the product page)</label><textarea data-m="story" rows="3">${esc(m.story || "")}</textarea></div>
+      <div class="field"><label>Variants, one per line: Label | price (optional) | available (yes/no)</label><textarea data-m="variants" rows="3" placeholder="Warm white&#10;Pink glow | 1499 | yes">${esc((m.variants || []).map(v => [v.label, v.price || "", v.available === false ? "no" : "yes"].join(" | ")).join("\n"))}</textarea></div>
+      <button class="btn sm" data-save-meta="${esc(p.id)}">Save ${esc(p.name)}</button></details>`; }).join("") : empty("No published products yet."));
+  $("view").onclick = e => { const b = e.target.closest("[data-save-meta]"); if (!b) return; guarded(async () => { const pid = b.dataset.saveMeta, box = b.closest("details"), g = k => box.querySelector(`[data-m="${k}"]`).value.trim();
+    const variants = g("variants").split("\n").map(l => l.split("|").map(x => x.trim())).filter(a => a[0]).map(a => { const v = {id:slug(a[0]), label:a[0].slice(0, 40), on:true}; if (a[1] !== undefined && a[1] !== "") { if (!(Number(a[1]) > 0)) throw new Error("Variant price must be a positive number: " + a[0]); v.price = Number(a[1]); } if (/^(no|n|false|0)$/i.test(a[2] || "")) v.available = false; return v; });
+    if (new Set(variants.map(v => v.id)).size !== variants.length) throw new Error("Two variants have the same name.");
+    const m = {occasion:g("occasion").slice(0, 60), recipient:g("recipient").slice(0, 60), gift_suitability:g("gift_suitability").slice(0, 120), story:g("story").slice(0, 1200), tags:g("tags").split(",").map(x => x.trim()).filter(Boolean).slice(0, 10), variants};
+    await writeSite(d => { d.meta = d.meta || {}; d.meta[pid] = m; }); toast("Saved. Live on the product page."); }); };
+};
+VIEWS.bundles = async () => {
+  const [P, d] = await Promise.all([pubProducts(), readSite()]); const list = d.bundles || [];
+  const reg = ids => ids.reduce((a, id) => a + ((P.find(p => p.id === id) || {}).price || 0), 0);
+  $("view").innerHTML = `<div class="notice" style="margin-bottom:14px">A bundle price is shown to customers (and a saving claimed) only when BACKEND-PATCH-v3 is deployed and the price is lower than the items' total. Otherwise customers see the bundle at regular prices, with no saving.</div>
+   ${list.length ? table([["Bundle",r => esc(r.name)],["Items",r => esc((r.items || []).map(id => (P.find(p => p.id === id) || {name:id + " (unpublished)"}).name).join(" + "))],["Regular",r => inr(reg(r.items || []))],["Bundle price",r => r.price ? inr(r.price) : "—"],["Saving",r => r.price && r.price < reg(r.items || []) ? inr(reg(r.items) - r.price) : "—"],["On",r => badge(r.on !== false ? "TRUE" : "OFF")],["",r => `<button class="btn ghost sm" data-bt="${esc(r.id)}">Toggle</button> <button class="btn ghost sm" data-bd="${esc(r.id)}">Delete</button>`]], list) : empty("No bundles yet.")}
+   <h3 style="margin:20px 0 8px">New bundle</h3><div class="card"><div class="field"><label>Bundle name</label><input id="b_n" maxlength="50"></div><div class="field"><label>Pick 2 or more products</label>${P.map(p => `<label style="text-transform:none;letter-spacing:0"><input type="checkbox" style="width:auto" data-bp="${esc(p.id)}"> ${esc(p.name)} (${inr(p.price)})</label>`).join("") || "<span class='muted'>No published products.</span>"}</div><div class="field"><label>Bundle price (optional, must be lower than the total)</label><input id="b_p" type="number" min="0"></div><p class="muted" id="b_t">Total: ₹0</p><button class="btn sm" id="b_go">Save bundle</button></div>`;
+  const upd = () => { const ids = [...document.querySelectorAll("[data-bp]:checked")].map(x => x.dataset.bp); $("b_t").textContent = "Total: " + inr(reg(ids)); }; document.querySelectorAll("[data-bp]").forEach(x => x.onchange = upd);
+  $("view").onclick = e => { const t = e.target.closest("[data-bt],[data-bd]"); if (!t) return; guarded(async () => { await writeSite(d2 => { d2.bundles = (d2.bundles || []).map(b => b.id === t.dataset.bt ? {...b, on:b.on === false} : b).filter(b => b.id !== t.dataset.bd); }); toast("Saved"); VIEWS.bundles(); }); };
+  $("b_go").onclick = () => guarded(async () => { const ids = [...document.querySelectorAll("[data-bp]:checked")].map(x => x.dataset.bp), name = $("b_n").value.trim(), price = Number($("b_p").value) || 0;
+    if (!name) throw new Error("Give the bundle a name."); if (ids.length < 2) throw new Error("Pick at least 2 products."); if (price && price >= reg(ids)) throw new Error("Bundle price must be lower than the total (" + inr(reg(ids)) + ") or left empty.");
+    await writeSite(d2 => { d2.bundles = (d2.bundles || []).concat({id:"b" + Date.now().toString(36), name, items:ids, price:price || 0, on:true}); }); toast("Bundle saved. Live on the product pages."); VIEWS.bundles(); });
+};
+VIEWS.analytics = async () => {
+  let r; try { r = await api("analytics.report", {}); } catch (e) { $("view").innerHTML = `<div class="notice">Analytics needs BACKEND-PATCH-v3 deployed in Apps Script, so no numbers can be shown yet. (${esc(e.message)})</div>`; return; }
+  const k = (l, v) => `<div class="kpi"><small>${l}</small><b>${v}</b></div>`, n = x => x === null || x === undefined ? "—" : x;
+  $("view").innerHTML = `<p class="muted" style="margin-bottom:12px">Real recorded events and orders only. Anonymous: no names, phones or emails are stored with events. Since ${esc(r.since || "first event")}.</p><div class="kpis">${k("Product views", n(r.product_view))}${k("Add to cart", n(r.add_to_cart))}${k("Checkout starts", n(r.checkout_start))}${k("Orders completed", n(r.orders))}${k("Average order value", r.aov === null ? "—" : inr(r.aov))}${k("Add-on conversion", r.addon_conversion_pct === null ? "—" : r.addon_conversion_pct + "%")}${k("Recommendation clicks", n(r.rec_click))}${k("Wishlist adds", n(r.wishlist_add))}${k("WhatsApp clicks", n(r.wa_click))}${k("Repeat purchase rate", r.repeat_pct === null ? "—" : r.repeat_pct + "%")}</div><p class="muted">Repeat rate = customers with 2+ orders (matched by hashed phone) ÷ customers. Shows "—" when there is not enough data.</p>`;
+};
+VIEWS.reminders = async () => {
+  let r; try { r = await api("prefs.list", {}); } catch (e) { $("view").innerHTML = `<div class="notice">Reminder sign-ups need BACKEND-PATCH-v3 deployed. Nothing is being collected or sent until then. (${esc(e.message)})</div>`; return; }
+  $("view").innerHTML = `<div class="notice" style="margin-bottom:14px">Sending: ${esc(r.sending || "Reminders are only sent if you ran installReminderTrigger in Apps Script. Check Apps Script → Triggers.")}</div>` + (r.rows.length ? table([["Email",x => esc(x.email)],["Consent given",x => esc(String(x.consent_at || "").slice(0, 10))],["Dates",x => esc((x.dates || []).map(d => d.t + " " + d.d).join("; "))],["Status",x => badge(x.opted_out ? "OPTED OUT" : "SUBSCRIBED")]], r.rows) : empty("No sign-ups yet."));
+};
 
 if (S && S.token) start();
 
@@ -364,9 +411,12 @@ function drawGifts() {
   <div class="card" style="margin-bottom:18px"><h3>Checkout Add-ons</h3><p class="muted" style="margin:6px 0 10px">Customer ko checkout par optional extras dikhte hain. Price hamesha product ki asli price se aata hai. Kuch bhi apne aap add nahi hota.</p>
   ${A.map((x, i) => `<div class="card" style="margin:8px 0;padding:12px"><div class="sl" style="align-items:center"><b>${label(x.id)}</b><span style="display:flex;gap:6px;align-items:center"><input type="checkbox" style="width:auto" ${x.on !== false ? "checked" : ""} onchange="setP('addons.items.${i}.on',this.checked)">${btns("addons.items", i, "Ye add-on")}</span></div><div class="field" style="margin-top:8px"><label>Kin products / categories ke saath dikhana hai (khali = sab ke saath)</label><select multiple size="4" onchange="setP('addons.items.${i}.for',[...this.selectedOptions].map(o=>o.value))">${cats.map(c => `<option value="${esc(c)}" ${(x.for || []).includes(c) ? "selected" : ""}>Category: ${esc(c)}</option>`).join("")}${PL.filter(p => p.id !== x.id).map(p => `<option value="${esc(p.id)}" ${(x.for || []).includes(p.id) ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select></div></div>`).join("")}
   <div class="field" style="max-width:480px">${addSel(A.map(x => x.id), "addAddon")}</div>${num("addons.max","Ek baar mein max add-ons (1 se 4)",1,4)}<p class="muted">Preview (checkout par aise dikhenge):</p><div>${pv(A)}</div></div>
+  <div class="card" style="margin-bottom:18px"><h3>After-order &amp; Tracking Recommendations</h3><p class="muted" style="margin:6px 0 10px">Order confirmation ("Your Next Special Moment") aur tracking page ("While Your Gift Is On Its Way") par ye products dikhte hain. Khali chhodoge to catalogue ke 3 products apne aap dikhenge. Jo product customer ne abhi khareeda wo nahi dikhta.</p>
+  ${ST.after.map((x, i) => `<div class="sl" style="align-items:center;margin:6px 0"><span>${label(x.id)}</span><span style="display:flex;gap:6px;align-items:center"><input type="checkbox" style="width:auto" ${x.on !== false ? "checked" : ""} onchange="setP('after.${i}.on',this.checked)">${btns("after", i, "Ye product")}</span></div>`).join("")}<div class="field" style="max-width:480px">${addSel(ST.after.map(x => x.id), "addAfter")}</div><p class="muted">Preview:</p><div>${pv(ST.after)}</div></div>
   <button class="btn" onclick="saveGifts()">Save</button> <button class="btn ghost" onclick="DIRTY=false;go('gifts')">Cancel</button>`;
 }
 const addRec = id => { if (!id) return; (ST.rec.map[ST.cur] = ST.rec.map[ST.cur] || []).push({id, on:true}); DIRTY = true; drawGifts(); };
+const addAfter = id => { if (!id) return; ST.after.push({id, on:true}); DIRTY = true; drawGifts(); };
 const addAddon = id => { if (!id) return; ST.addons.items.push({id, on:true, for:[]}); DIRTY = true; drawGifts(); };
 const saveGifts = () => guarded(async () => {
   const g = ST.g, cl = (v, a, b, f) => Math.max(a, Math.min(b, Math.floor(+v) || f));
@@ -374,7 +424,7 @@ const saveGifts = () => guarded(async () => {
   if (g.list.some(t => !String(t.name).trim() || !String(t.text).trim())) throw new Error("Har template ka naam aur message bharo ya use delete karo.");
   g.list.forEach((t, i) => { t.id = t.id || "n" + Date.now() + i; t.text = String(t.text).trim().slice(0, 300); });
   const cur = await api("settings.get"); let d = {}; try { d = JSON.parse(cur.site_json || "{}"); } catch {}
-  d.gift = g; d.rec = ST.rec; d.addons = ST.addons;
+  d.gift = g; d.rec = ST.rec; d.addons = ST.addons; d.after = ST.after;
   await api("settings.set", {key:"site_json", value:JSON.stringify(d)}); try { sessionStorage.removeItem("sr_cfg"); } catch {}
   DIRTY = false; toast("Saved ✓ Website par live ho gaya");
 });

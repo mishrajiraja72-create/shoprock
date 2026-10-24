@@ -2,7 +2,7 @@ document.documentElement.classList.add("js");
 /* Shared storefront logic: config, API client, cart, formatters */
 const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbyZylsb_FYFTlIvz9QyHKRPKqkxhCP1gcYXvfvMPJBLIRChGmyer7LAIUHYQkGI4h1p/exec",  // set after deploying backend
-  CONTACT: "[OWNER REVIEW] support email / phone"
+  CONTACT: ""
 };
 const inr = n => new Intl.NumberFormat("en-IN", {style:"currency", currency:"INR", maximumFractionDigits:0}).format(Number(n)||0);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -23,17 +23,34 @@ function toast(msg, bad) {
 
 /* Cart: stores only product_id + qty. Prices are ALWAYS re-fetched from the server. */
 const Cart = {
-  get() { try { return JSON.parse(localStorage.getItem("sr_cart") || "[]"); } catch { return []; } },
-  set(c) { try { localStorage.setItem("sr_cart", JSON.stringify(c)); } catch {} Cart.badge(); },
-  add(id, qty = 1, note) { const c = Cart.get(), i = c.find(x => x.product_id === id); if (i) { i.qty = Math.min(10, i.qty + qty); if (note) i.note = note; } else c.push(note ? {product_id:id, qty, note} : {product_id:id, qty}); Cart.set(c); },
+  get() { try { const c = JSON.parse(localStorage.getItem("sr_cart") || "[]"); return Array.isArray(c) ? c.filter(x => x && typeof x.product_id === "string" && x.qty > 0) : []; } catch { return []; } },
+  set(c) { try { localStorage.setItem("sr_cart", JSON.stringify(c)); } catch {} Cart.badge(); try { document.dispatchEvent(new Event("cart:change")); } catch {} },
+  add(id, qty = 1, note, variant, bundle) { const c = Cart.get(), i = c.find(x => x.product_id === id); if (i) { i.qty = Math.min(10, i.qty + qty); if (note) i.note = note; if (variant) i.variant = variant; } else { const o = {product_id:id, qty}; if (note) o.note = note; if (variant) o.variant = String(variant).slice(0, 40); if (bundle) o.bundle = String(bundle).slice(0, 40); c.push(o); } Cart.set(c); },
+  setVariant(id, v) { Cart.set(Cart.get().map(x => x.product_id === id ? {...x, variant:String(v || "").slice(0, 40)} : x)); },
   setNote(id, note) { Cart.set(Cart.get().map(x => x.product_id === id ? {...x, note:String(note || "").slice(0, 300)} : x)); },
-  setQty(id, q) { q = Math.floor(q); const c = Cart.get().map(x => x.product_id === id ? {...x, qty: Math.max(0, Math.min(10, q))} : x).filter(x => x.qty > 0); Cart.set(c); },
+  setQty(id, q) { q = Math.floor(Number(q)); if (!isFinite(q)) return; const c = Cart.get().map(x => x.product_id === id ? {...x, qty: Math.max(0, Math.min(10, q))} : x).filter(x => x.qty > 0); Cart.set(c); },
   remove(id) { Cart.set(Cart.get().filter(x => x.product_id !== id)); },
   clear() { Cart.set([]); },
   count() { return Cart.get().reduce((a, x) => a + x.qty, 0); },
   badge() { const e = document.getElementById("cartCount"); if (e) e.textContent = Cart.count(); }
 };
 
+/* Wishlist: guest-safe, stored only in this browser. No account needed. */
+const Wish = {
+  get() { try { const a = JSON.parse(localStorage.getItem("sr_wish") || "[]"); return Array.isArray(a) ? [...new Set(a.filter(x => typeof x === "string"))].slice(0, 100) : []; } catch { return []; } },
+  set(a) { try { localStorage.setItem("sr_wish", JSON.stringify(a)); } catch {} Wish.badge(); try { document.dispatchEvent(new Event("wish:change")); } catch {} },
+  has(id) { return Wish.get().includes(id); },
+  toggle(id) { const a = Wish.get(), on = !a.includes(id); Wish.set(on ? [...a, id] : a.filter(x => x !== id)); if (on) track("wishlist_add", {product_id:id}); return on; },
+  badge() { const e = document.getElementById("wishCount"); if (e) e.textContent = Wish.get().length; }
+};
+/* Analytics: records ONLY when the backend reports v3 support (SITE.v3). Random anonymous id, no name/phone/email, honours Do-Not-Track. */
+const EVENTS = ["product_view","add_to_cart","checkout_start","order_complete","addon_add","rec_click","wishlist_add","wa_click","bundle_add"];
+function track(ev, data) { try {
+  if (!EVENTS.includes(ev) || navigator.doNotTrack === "1") return;
+  loadConfig().then(c => { if (!c || !c.v3) return; let a = ""; try { a = localStorage.getItem("sr_anon") || (crypto.randomUUID()); localStorage.setItem("sr_anon", a); } catch {}
+    api("public.event", {event:ev, anon:a, page:location.pathname.split("/").pop(), ...(data || {})}).catch(() => {}); });
+} catch {} }
+document.addEventListener("click", e => { const a = e.target.closest && e.target.closest('a[href^="https://wa.me/"]'); if (a) track("wa_click", {page:location.pathname.split("/").pop()}); });
 let SITE = {};
 async function loadConfig() {
   try { const c = JSON.parse(sessionStorage.getItem("sr_cfg") || "null"); if (c && Date.now() - c.t < 300000) { SITE = c.v; return SITE; } } catch {}
@@ -45,12 +62,12 @@ function header(active) {
   return `<div class="announce" id="announce">Curated gifts for couples &middot; Secure ordering &middot; Track every order</div>
   <div class="container"><nav class="nav"><a class="logo" href="index.html">SHOP<b>ROCK</b></a>
   <button class="nav-toggle" onclick="document.getElementById('nl').classList.toggle('open')" aria-label="Menu">Menu</button>
-  <ul id="nl"><li><a href="shop.html">Shop</a></li><li><a href="index.html#occasions">Occasions</a></li><li><a href="index.html#story">Why us</a></li><li><a href="track.html">Track order</a></li><li><a href="policies.html#faq">FAQ</a></li><li><a href="cart.html">Cart (<span id="cartCount">0</span>)</a></li></ul></nav></div>`;
+  <ul id="nl"><li><a href="shop.html">Shop</a></li><li><a href="index.html#occasions">Occasions</a></li><li><a href="index.html#story">Why us</a></li><li><a href="track.html">Track order</a></li><li><a href="policies.html#faq">FAQ</a></li><li><a href="wishlist.html">Saved (<span id="wishCount">0</span>)</a></li><li><a href="cart.html">Cart (<span id="cartCount">0</span>)</a></li></ul></nav></div>`;
 }
 function footer() {
   return `<footer><div class="container cols"><div><div class="logo">SHOP<b>ROCK</b></div><p style="margin-top:12px" id="ftag">Thoughtful gifts for couples.</p><p style="margin-top:10px" id="fsoc"></p></div>
   <div><p class="eyebrow">Policies</p><p><a href="policies.html#shipping">Shipping</a><br><a href="policies.html#returns">Returns &amp; refunds</a><br><a href="policies.html#privacy">Privacy</a><br><a href="policies.html#terms">Terms</a></p></div>
-  <div><p class="eyebrow">Support</p><p id="fsup">${esc(CONFIG.CONTACT)}</p></div></div></footer>`;
+  <div><p class="eyebrow">Support</p><p id="fsup"><a href="policies.html#contact">Contact &amp; support</a></p></div></div></footer>`;
 }
 const WA_ICON = '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3C9 3 3.4 8.6 3.4 15.5c0 2.4.7 4.6 1.9 6.5L3 29l7.2-2.3c1.8 1 3.8 1.5 5.8 1.5 7 0 12.6-5.6 12.6-12.5S23 3 16 3zm0 22.6c-1.8 0-3.6-.5-5.1-1.4l-.4-.2-4.3 1.4 1.4-4.2-.3-.4a10 10 0 0 1-1.6-5.4C5.7 9.9 10.3 5.4 16 5.4s10.3 4.5 10.3 10.1S21.7 25.6 16 25.6zm5.6-7.5c-.3-.2-1.8-.9-2.1-1s-.5-.2-.7.2-.8 1-1 1.2-.4.2-.7.1a8.3 8.3 0 0 1-4.1-3.6c-.3-.5.3-.5.9-1.6.1-.2 0-.4 0-.5l-1-2.3c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4s-1 1-1 2.4 1 2.8 1.2 3 2 3.1 4.9 4.3c1.8.8 2.6.9 3.5.7.5-.1 1.8-.7 2-1.4s.2-1.3.2-1.4-.3-.2-.6-.4z"/></svg>';
 function applySite() {
@@ -103,7 +120,7 @@ document.addEventListener("pointerout", e => { const c = e.target.closest && e.t
 if (!document.querySelector('link[rel="icon"]')) document.head.insertAdjacentHTML("beforeend", '<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%2311110f%27/%3E%3Cpath d=%27M16 26S6 19 6 12.5A5.5 5.5 0 0 1 16 9.5a5.5 5.5 0 0 1 10 3C26 19 16 26 16 26z%27 fill=%27%23c8a76a%27/%3E%3C/svg%3E">');
 document.addEventListener("DOMContentLoaded", () => {
   const h = document.getElementById("hdr"), f = document.getElementById("ftr");
-  if (h) h.innerHTML = header(); if (f) f.innerHTML = footer(); Cart.badge(); initReveal();
+  if (h) h.innerHTML = header(); if (f) f.innerHTML = footer(); Cart.badge(); Wish.badge(); initReveal();
   loadConfig().then(applyConfig);
 });
 async function loadProducts() { return api("public.products"); }

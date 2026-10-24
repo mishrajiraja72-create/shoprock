@@ -130,3 +130,20 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
 .sticky-buy{padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
 .container,.card,.split>*,.pbuy,.cb,.rb,.hero-copy{min-width:0}h1,h2,h3,p,a,.muted{overflow-wrap:anywhere}.pbuy{flex-wrap:wrap}.btn{max-width:100%}
 @media(max-width:380px){.tcards{grid-template-columns:1fr}}
+
+/* keep the WhatsApp bubble clear of the mobile purchase bar */
+@media(max-width:760px){.wa-float{bottom:84px;right:12px;width:50px;height:50px}.mini .msheet .rc{grid-template-columns:64px 1fr}}
+
+/* ===== v3: product page polish, variants, wishlist, bundles ===== */
+.ptitle{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}.ptitle h1{font-size:clamp(1.8rem,5vw,3rem);margin:8px 0;min-width:0;overflow-wrap:anywhere}
+.heart{flex:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:transparent;color:#f3a6c8;font-size:1.4rem;cursor:pointer;line-height:1}.heart.on{background:rgba(243,166,200,.14);border-color:#f3a6c8}.heart:focus-visible,.vchip:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.pprice{font-size:1.6rem;color:var(--champagne);margin-bottom:4px}.instock{color:var(--ok,#7fd19a);font-size:.85rem;margin-bottom:12px}.outstock{color:var(--danger,#ff8a8a);font-size:.85rem;margin-bottom:12px}.lead2{margin-bottom:12px;overflow-wrap:anywhere}
+.vars{border:0;padding:0;margin:14px 0}.vars legend{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--grey);margin-bottom:8px}.vchip{margin:0 8px 8px 0;padding:10px 14px;min-height:44px;border:1px solid var(--line);background:transparent;color:inherit;border-radius:999px;cursor:pointer}.vchip.on{border-color:#f3a6c8;background:rgba(243,166,200,.12)}.vchip:disabled{opacity:.45;cursor:not-allowed}
+.acc{margin-top:18px}.acc details{border-top:1px solid var(--line);padding:12px 0}.acc summary{cursor:pointer;min-height:32px}.acc p,.facts{margin-top:10px}.facts{display:grid;grid-template-columns:auto 1fr;gap:6px 14px}.facts dt{color:var(--grey)}.facts dd{margin:0;overflow-wrap:anywhere}
+.qtyf{max-width:110px;margin:0}.pbuy{flex-wrap:wrap}.bundle{margin-bottom:14px}.bundle .rgrid{margin:10px 0}.save{color:#f3a6c8}
+#revsec details.rvform summary,.rvform summary{cursor:pointer}
+.wishbtn{position:absolute;top:8px;right:8px}
+.pinfo,.gallery{min-width:0}img{max-width:100%}
+.consent{display:flex;gap:10px;align-items:flex-start;text-transform:none;letter-spacing:0}.consent input{width:auto;margin-top:4px}
+@media(max-width:760px){body{padding-bottom:0}.pbuy .btn{flex:1 1 140px}.recs .rgrid{grid-template-columns:1fr}}
+.cqty{display:inline-flex;gap:6px;align-items:center;margin-left:8px}.cqty button{width:32px;height:32px;border:1px solid var(--line);background:transparent;color:inherit;border-radius:50%;cursor:pointer}
