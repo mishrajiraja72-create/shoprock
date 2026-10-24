@@ -1,0 +1,22 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cart — SHOPROCK</title><link rel="stylesheet" href="css/shoprock.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/premium.css"></head><body>
+<div id="hdr"></div>
+<section><div class="container" style="max-width:800px"><h2 style="margin-bottom:24px">Your cart</h2><div id="out"><div class="loading">Loading</div></div></div></section>
+<div id="ftr"></div><script src="js/common.js"></script><script src="js/extras.js"></script>
+<script>
+const out=document.getElementById("out");
+async function draw(){const c=Cart.get();
+ if(!c.length){out.innerHTML='<div class="empty">Your cart is empty. <a class="btn" href="shop.html">Continue shopping</a></div>';return;}
+ let cat,S,cfg;try{[cat,S,cfg]=await Promise.all([loadProducts(),siteCfg(),loadConfig()]);}catch(e){out.innerHTML='<div class="errorbox">Could not verify prices right now. Please retry.</div>';return;}
+ const rows=c.map(i=>({i,p:cat.find(x=>x.product_id===i.product_id)})),gone=rows.filter(r=>!r.p);gone.forEach(r=>Cart.remove(r.i.product_id));if(gone.length)toast("Some items are no longer available and were removed.",1);
+ const ok=rows.filter(r=>r.p);if(!ok.length){draw();return;}
+ const sub=ok.reduce((a,r)=>a+r.p.price*r.i.qty,0),fs=+cfg.free_shipping_above||0,G=giftCfg(S);
+ const bar=fs?(sub>=fs?'<p class="muted">Free shipping unlocked.</p>':`<p class="muted">Add ${inr(fs-sub)} more for free shipping.</p><div class="sbar"><i style="width:${Math.round(sub/fs*100)}%"></i></div>`):"";
+ const rc=[];ok.forEach(r=>recsFor(r.p,cat,S,ok.map(x=>x.p.product_id)).forEach(x=>{if(!rc.includes(x))rc.push(x);}));
+ out.innerHTML=ok.map(r=>`<div class="cl"><img src="${esc(r.p.image_url)}" alt=""><div class="cb"><a href="product.html?id=${encodeURIComponent(r.p.product_id)}">${esc(r.p.name)}</a><div class="muted">${inr(r.p.price)} each</div><div class="qty"><button type="button" data-q="-1" data-id="${esc(r.i.product_id)}" aria-label="Decrease">&minus;</button><b>${r.i.qty}</b><button type="button" data-q="1" data-id="${esc(r.i.product_id)}" aria-label="Increase">+</button></div></div><div class="ct"><b>${inr(r.p.price*r.i.qty)}</b><button class="btn ghost sm" data-rm="${esc(r.i.product_id)}">Remove</button></div>
+ ${G.enabled?`<details class="gift" ${r.i.note?"open":""}><summary>${r.i.note?"Edit gift note":"Add gift note"}</summary><textarea id="n_${esc(r.i.product_id)}" rows="2" maxlength="${G.max}">${esc(r.i.note||"")}</textarea><button class="btn ghost sm" data-note="${esc(r.i.product_id)}">Save note</button></details>`:""}</div>`).join("")+
+ `<div class="sum">${bar}<p>Subtotal <b>${inr(sub)}</b></p><p class="muted">Shipping and final total are confirmed at checkout.</p><a class="btn" href="checkout.html">Proceed to checkout</a> <a class="btn ghost" href="shop.html">Continue shopping</a> <button class="btn ghost sm" data-clear="1">Clear cart</button></div>`+recSection(rc.slice(0,3),"You may also love");}
+out.onclick=e=>{const t=e.target.closest("button");if(!t)return;const d=t.dataset,cur=id=>(Cart.get().find(x=>x.product_id===id)||{qty:1}).qty;
+ if(d.q){Cart.setQty(d.id,cur(d.id)+ +d.q);draw();}else if(d.rm){Cart.remove(d.rm);draw();}else if(d.note){Cart.setNote(d.note,document.getElementById("n_"+d.note).value);toast("Note saved");draw();}else if(d.add){Cart.add(d.add,1);toast("Added");draw();}else if(d.clear&&confirm("Remove everything from your cart?")){Cart.clear();draw();}};
+draw();
+</script></body></html>
