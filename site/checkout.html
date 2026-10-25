@@ -35,7 +35,7 @@ document.addEventListener("click",e=>{const cq=e.target.closest("[data-cq]");if(
 })();
 
 async function afterOrder(r){let h="";try{const l=afterRecs(CAT,SC,window.ORD||[],3);h=`<div class="card" style="margin-top:16px"><p style="margin-bottom:12px"><a class="btn" href="track.html">Track your order</a> </p>${await waHelp("Hi! I need help with my order "+r.order_id+".")}</div>`+blank(recSection(l,"Your Next Special Moment \u{1F48C}"))+(l.length?'<p style="margin-top:12px"><a class="btn ghost" href="shop.html">Browse all gifts</a></p>':"");}catch{}$("done").insertAdjacentHTML("beforeend",h);$("done").onclick=e=>{const b=e.target.closest("[data-add]");if(b){Cart.add(b.dataset.add,1);toast("Added to your cart");}};}
-function showDone(r){setTimeout(()=>afterOrder(r),0);
+function showDone(r){setTimeout(()=>{afterOrder(r);momentPrompt($("done"));},0);
  const wrap=(inner)=>`<div class="card"><p class="eyebrow">Order reference</p><h3>${esc(r.order_id)}</h3>${(()=>{try{const w=JSON.parse(sessionStorage.getItem("sr_week")||"null");return w&&w.i&&w.i.every(x=>(window.ORD||[]).includes(x))?`<p class="notice">Your Surprise Week is ready to plan. <a href="reveal.html?week=1">Write your 3 messages 💌</a></p>`:""}catch{return""}})()}${(window.ORDITEMS||[]).length?`<ul class="hl">${window.ORDITEMS.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}${inner}<p class="muted" style="margin-top:12px">Want to make it unforgettable? <a href="reveal.html">Send a surprise reveal 💌</a><br>Track with your order reference and the last 4 digits of your mobile. <a href="track.html">Track order</a></p></div>`;
  if(r.mode==="MANUAL"&&r.upi_id){
   const amt=Number(r.total).toFixed(2),note=encodeURIComponent("Order "+r.order_id),

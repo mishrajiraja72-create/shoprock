@@ -38,3 +38,10 @@ v3 browser 37, dashboard->storefront browser 12. NOT run: your live Apps Script 
   from real products. Works with no backend. Email reminders still cover the yearly date only.
 - **Surprise Week**: Dashboard -> Bundles -> tick "Surprise Week" (exactly 3 products). One order, real bundle saving (only when server pricing is on),
   plus a planner (reveal.html?week=1) that makes 3 reveal links (Day 1/2/3 of 3). Does NOT promise separate-day delivery.
+
+## Special dates on the order confirmation
+After an order, a card asks (optional) for a birthday/anniversary. It saves on the device only. The email-reminder box appears only after a date
+is saved and only if the backend patch is live; consent is UNTICKED by default and nothing is sent to the server without the tick.
+
+## Dashboard cache
+dashboard/index.html loads dashboard.js?v=<tag>. Change the tag on every release, or browsers keep the old dashboard.

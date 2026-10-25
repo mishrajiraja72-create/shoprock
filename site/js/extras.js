@@ -100,3 +100,22 @@ function momentIdeas(cat, S, kind, max) {
   const live = cat.filter(p => p.available !== false), hit = live.filter(p => kw.some(k => finderText(p, S).includes(k)));
   return (hit.length ? hit : live.slice().sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0) || a.price - b.price)).slice(0, max || 2);
 }
+
+/* Order-confirmation prompt: save a birthday/anniversary on THIS device; optional email reminder ONLY if the customer ticks the (unticked-by-default) consent box. */
+function occRead() { try { const a = JSON.parse(localStorage.getItem("sr_occ") || "[]"); return Array.isArray(a) ? a.filter(x => x && /^\d{4}-\d{2}-\d{2}$/.test(x.d)).slice(0, 12) : []; } catch { return []; } }
+async function momentPrompt(host) {
+  if (!host || host.querySelector("#mp")) return; let cfg = {}; try { cfg = await loadConfig(); } catch {}
+  host.insertAdjacentHTML("beforeend", `<div class="card" id="mp" style="margin-top:16px"><p class="eyebrow">Never miss a moment 💗</p><h3 style="margin:6px 0">Save their special date</h3><p class="muted" style="margin-bottom:10px">A birthday or an anniversary. We'll show you gift ideas on your Saved page${cfg.v3 ? ", and can email you a reminder only if you ask below" : ""}.</p>
+   <div class="row"><div class="field"><label for="mp_t">Occasion</label><select id="mp_t"><option>Birthday</option><option>Anniversary</option><option>Other</option></select></div><div class="field"><label for="mp_n">Whose? (optional)</label><input id="mp_n" maxlength="40"></div><div class="field"><label for="mp_d">Date (anniversary: the day you got together)</label><input id="mp_d" type="date"></div></div>
+   <button class="btn ghost sm" id="mp_s" type="button">Save this date</button><p class="muted" id="mp_m" role="status" style="margin-top:8px"></p>
+   ${cfg.v3 ? `<div id="mp_r" hidden style="margin-top:12px"><div class="field"><label for="mp_e">Email for the reminder</label><input id="mp_e" type="email" autocomplete="email"></div><label class="consent"><input type="checkbox" id="mp_c"> Yes, email me a reminder about the dates I saved, about a week before. I can unsubscribe any time on the Saved page.</label><button class="btn sm" id="mp_g" type="button" style="margin-top:8px">Email me reminders</button></div>` : ""}</div>`);
+  const $ = i => document.getElementById(i);
+  $("mp_s").onclick = () => { const d = $("mp_d").value; if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { toast("Please choose a date.", 1); return; }
+    const a = occRead(); a.push({t: $("mp_t").value, n: $("mp_n").value.trim().slice(0, 40), d}); try { localStorage.setItem("sr_occ", JSON.stringify(a.slice(0, 12))); } catch {}
+    $("mp_m").innerHTML = `Saved on this device. See your upcoming moments on the <a href="wishlist.html">Saved page</a>.`; $("mp_d").value = ""; $("mp_n").value = "";
+    if ($("mp_r")) { $("mp_r").hidden = false; const em = document.getElementById("email"); if (em && em.value && !$("mp_e").value) $("mp_e").value = em.value; } };
+  if ($("mp_g")) $("mp_g").onclick = async () => { const email = $("mp_e").value.trim();
+    if (!$("mp_c").checked) { toast("Please tick the box if you want reminder emails.", 1); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast("Enter a valid email.", 1); return; }
+    $("mp_g").disabled = true; try { await api("public.preferences", {email, consent: true, consent_text: $("mp_c").parentElement.textContent.trim().slice(0, 300), dates: occRead().map(x => ({t: x.t, n: x.n, d: x.d}))}); $("mp_r").innerHTML = "<p>You're signed up. You can unsubscribe any time on the Saved page.</p>"; } catch (err) { toast(err.message, 1); $("mp_g").disabled = false; } };
+}
