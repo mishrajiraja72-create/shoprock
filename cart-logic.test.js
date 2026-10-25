@@ -26,4 +26,18 @@ run('Cart.setVariant("V","v3")');t("setVariant changes only variant",run('Cart.g
 run('buyNow("V",1,"","v2")');t("buyNow sets qty+variant without stacking",run('cartQty("V")')===1&&run('Cart.get()[0].variant')==="v2");
 run('Cart.clear()');
 
+// ---- Moments ----
+const T0=new Date(2026,9,25),M=run('(d)=>momentsFor(d,new Date(2026,9,25),8)');
+let ms=M([{t:"Anniversary",n:"Sam",d:"2026-07-17"},{t:"Birthday",d:"1990-10-30"},{t:"Anniversary",d:"2026-12-01"},{t:"Birthday",d:"garbage"}]);
+t("moments: 100-day milestone lands exactly today",ms[0].label==="100 days together"&&ms[0].daysAway===0&&ms[0].name==="Sam");
+t("moments: birthday uses next yearly date (in 5 days)",ms.some(m=>m.label==="Birthday"&&m.daysAway===5));
+t("moments: future anniversary date is itself the moment (37 days)",ms.some(m=>m.label==="Anniversary"&&m.daysAway===37));
+t("moments: sorted soonest first",ms.every((m,i)=>i===0||ms[i-1].date<=m.date));
+t("moments: invalid saved date ignored",!ms.some(m=>m.label==="Birthday"&&m.daysAway>300));
+t("moments: next milestones after 100 days are 200 days + 1 year",ms.some(m=>m.label==="200 days together"&&m.daysAway===100)&&M([{t:"Anniversary",d:"2026-07-17"}]).some(m=>m.label==="1 year together"));
+t("moments: respects max count",M([{t:"Anniversary",d:"2020-01-01"}]).length<=8);
+t("moments: past birthday this year rolls to next year",M([{t:"Birthday",d:"2000-01-02"}])[0].daysAway>60);
+ctx.__cat=[{product_id:"P1",name:"Lamp",price:1299,category:"Lamps",description:"anniversary glow"},{product_id:"P2",name:"Box",price:499,category:"Keepsakes",description:"a box"}];
+t("momentIdeas: picks products whose own data matches the occasion",run('momentIdeas(__cat,{},"Anniversary",2)').map(p=>p.product_id).join()==="P1");
+t("momentIdeas: falls back to available products when nothing matches (no false claims in UI)",run('momentIdeas(__cat,{},"Birthday",2)').length===2);
 console.log(`\n${pass} passed, ${fail} failed`);process.exit(fail?1:0);

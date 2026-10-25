@@ -22,8 +22,8 @@ const metaOf = (S, pid) => ((S || {}).meta || {})[pid] || {};
 const variantsOf = (S, pid) => (metaOf(S, pid).variants || []).filter(v => v && v.id && v.label && v.on !== false);
 function unitPrice(p, item, S) { const v = item && item.variant && variantsOf(S, p.product_id).find(x => x.id === item.variant); return (v && SITE.v3_pricing && +v.price > 0) ? +v.price : +p.price; }
 function variantLabel(p, item, S) { const v = item && item.variant && variantsOf(S, p.product_id).find(x => x.id === item.variant); return v ? v.label : ""; }
-function bundlesFor(pid, cat, S) { return ((S || {}).bundles || []).filter(b => b.on !== false && (b.items || []).includes(pid) && b.items.length > 1).map(b => { const it = b.items.map(id => cat.find(c => c.product_id === id)); if (it.some(x => !x || x.available === false)) return null;
-  const reg = it.reduce((a, x) => a + x.price, 0), priced = !!SITE.v3_pricing && +b.price > 0 && +b.price < reg; return {id:b.id, name:b.name, items:it, reg, price:priced ? +b.price : reg, save:priced ? reg - +b.price : 0, priced}; }).filter(Boolean); }
+function bundlesFor(pid, cat, S, vmap) { vmap = vmap || {}; return ((S || {}).bundles || []).filter(b => b.on !== false && (b.items || []).includes(pid) && b.items.length > 1).map(b => { const it = b.items.map(id => cat.find(c => c.product_id === id)); if (it.some(x => !x || x.available === false)) return null;
+  const reg = it.reduce((a, x) => a + unitPrice(x, {variant: vmap[x.product_id] || (Cart.get().find(i => i.product_id === x.product_id) || {}).variant}, S), 0), priced = !!SITE.v3_pricing && +b.price > 0 && +b.price < reg; return {id:b.id, name:b.name, kind:b.kind || "", items:it, reg, price:priced ? +b.price : reg, save:priced ? reg - +b.price : 0, priced}; }).filter(Boolean); }
 async function miniCart(pid) {
   let cat = [], S = {}; try { cat = await loadProducts(); S = await siteCfg(); } catch {}
   const old = document.getElementById("mini"); if (old) old.remove();
@@ -53,3 +53,50 @@ function addonsFor(cart, cat, s, sel) {
 function afterRecs(cat, s, exclude, max) { const man = ((s.after || []).filter(x => x.on !== false).map(x => cat.find(c => c.product_id === x.id))).filter(p => p && !exclude.includes(p.product_id)); return (man.length ? man : cat.filter(p => !exclude.includes(p.product_id))).slice(0, max || 3); }
 function blank(html) { return html.replace(/<a href="product/g, '<a target="_blank" rel="noopener" href="product'); }
 async function waHelp(msg) { try { await loadConfig(); } catch {} const u = waUrl(msg); return u ? `<a class="btn wa" target="_blank" rel="noopener" href="${esc(u)}">Chat with us on WhatsApp</a>` : ""; }
+
+/* Mirrors the server's bundle rule exactly: a saving applies only if EVERY product of an active bundle is in the cart tagged with that bundle id, and only when the backend prices bundles (v3_pricing). */
+function bundleSaving(items, prods, S) {
+  if (!SITE.v3_pricing) return 0; let s = 0;
+  ((S || {}).bundles || []).forEach(b => { if (!b || b.on === false || !(+b.price > 0) || !b.items || b.items.length < 2) return;
+    const u = b.items.map(id => { const i = items.find(x => x.product_id === id && x.bundle === b.id), p = prods.find(x => x.product_id === id); return i && p ? unitPrice(p, i, S) : null; });
+    if (u.some(x => x === null)) return; const reg = u.reduce((a, x) => a + x, 0); if (+b.price < reg) s += Math.round(reg - +b.price); });
+  return s;
+}
+
+/* Gift Finder: ranks REAL published products from the customer's answers. It only ever claims a match that exists in the product's own data. */
+const FINDER = {
+  who: [["My partner",["partner","couple","boyfriend","girlfriend","husband","wife"]],["Long-distance partner",["long distance","long-distance","distance","partner","couple"]],["Someone I'm dating",["dating","crush","new relationship","first"]],["A friend",["friend","bestie"]]],
+  occ: [["Anniversary",["anniversary"]],["Birthday",["birthday"]],["Just because",["just because","surprise","everyday"]],["Long distance",["long distance","long-distance","distance"]]],
+  vibe: [["Romantic",["romantic","love","rose"]],["Cute & playful",["cute","playful","funny","flirty"]],["Deep & emotional",["emotional","memory","memories","story","letter","forever"]],["Aesthetic & minimal",["aesthetic","minimal","lamp","frame","decor"]]],
+  budget: [["Under ₹500",0,500],["₹500 – ₹1,000",500,1000],["₹1,000 – ₹2,000",1000,2000],["₹2,000 and above",2000,1e9]]
+};
+function finderText(p, S) { const m = metaOf(S, p.product_id); return [p.name, p.category, p.description, p.occasion, m.occasion, m.recipient, m.gift_suitability, (m.tags || []).join(" "), m.story].filter(Boolean).join(" ").toLowerCase(); }
+function finderRank(cat, S, a) {
+  const b = FINDER.budget[a.budget] || FINDER.budget[3], pick = (g, i) => (FINDER[g][i] || [, []])[1], hit = (txt, kws) => kws.filter(k => txt.includes(k))[0];
+  const live = cat.filter(p => p.available !== false), mid = (b[1] + Math.min(b[2], b[1] * 2 + 500)) / 2;
+  const rows = live.map(p => { const t = finderText(p, S), o = hit(t, pick("occ", a.occ)), w = hit(t, pick("who", a.who)), v = hit(t, pick("vibe", a.vibe)), inB = p.price >= b[1] && p.price < b[2] || (b[2] === 1e9 && p.price >= b[1]);
+    const why = []; if (o) why.push("Made for " + FINDER.occ[a.occ][0].toLowerCase()); if (w) why.push("Great for " + FINDER.who[a.who][0].toLowerCase().replace("my ", "your ")); if (v) why.push("Fits a " + FINDER.vibe[a.vibe][0].toLowerCase() + " mood"); if (inB) why.push("Within your budget");
+    return {p, score: (o ? 3 : 0) + (w ? 2 : 0) + (v ? 2 : 0), inB, why, d: Math.abs(p.price - mid)}; });
+  const inB = rows.filter(r => r.inB).sort((x, y) => y.score - x.score || y.p.featured - x.p.featured || x.d - y.d);
+  if (inB.length) return {exact: true, list: inB.slice(0, 3)};
+  return {exact: false, list: rows.sort((x, y) => Math.abs(x.p.price - (b[1] || 0)) - Math.abs(y.p.price - (b[1] || 0))).slice(0, 3).map(r => ({...r, why: ["A little outside your budget"]}))};
+}
+
+/* Moments: upcoming dates computed from what the customer saved. Anniversary dates in the past are treated as the day they got together. Pure function, no network. */
+function momentsFor(dates, today, max) {
+  const DAY = 864e5, t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate()), out = [];
+  const parse = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+  const yearly = dt => { let n = new Date(t0.getFullYear(), dt.getMonth(), dt.getDate()); if (n < t0) n = new Date(t0.getFullYear() + 1, dt.getMonth(), dt.getDate()); return n; };
+  (dates || []).forEach(x => { if (!x || !/^\d{4}-\d{2}-\d{2}$/.test(x.d)) return; const dt = parse(x.d), name = x.n || "";
+    if (x.t === "Anniversary" && dt < t0) {
+      [50, 100, 200, 300, 500, 1000, 1500, 2000, 2500, 3000].forEach(n => { const d = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() + n); if (d >= t0) out.push({label: n + " days together", kind: "Anniversary", name, date: d}); });
+      for (let y = 1; y <= 40; y++) { const d = new Date(dt.getFullYear() + y, dt.getMonth(), dt.getDate()); if (d >= t0) out.push({label: y + (y === 1 ? " year" : " years") + " together", kind: "Anniversary", name, date: d}); }
+    } else out.push({label: x.t || "Special day", kind: x.t || "Other", name, date: yearly(dt)}); });
+  out.sort((a, b) => a.date - b.date); const seen = {};
+  return out.filter(m => { const k = m.label + m.date.getTime() + m.name; if (seen[k]) return false; seen[k] = 1; return true; }).slice(0, max || 6).map(m => ({...m, daysAway: Math.round((m.date - t0) / DAY)}));
+}
+function momentIdeas(cat, S, kind, max) {
+  const kw = kind === "Birthday" ? ["birthday"] : kind === "Anniversary" ? ["anniversary"] : ["surprise", "just because", "everyday"];
+  const live = cat.filter(p => p.available !== false), hit = live.filter(p => kw.some(k => finderText(p, S).includes(k)));
+  return (hit.length ? hit : live.slice().sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0) || a.price - b.price)).slice(0, max || 2);
+}

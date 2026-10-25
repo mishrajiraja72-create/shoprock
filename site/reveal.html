@@ -1,0 +1,37 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A surprise for you -- SHOPROCK</title><link rel="stylesheet" href="css/shoprock.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/premium.css"></head><body>
+<div id="hdr"></div>
+<section><div class="container" style="max-width:640px" id="rv"></div></section>
+<div id="ftr"></div><script src="js/common.js"></script><script src="js/extras.js"></script>
+<script>
+const $=i=>document.getElementById(i);
+const enc=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const dec=s=>{try{const o=JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g,"+").replace(/_/g,"/")))));return o&&typeof o==="object"&&typeof o.m==="string"&&o.m.trim()?{f:String(o.f||"").slice(0,40),t:String(o.t||"").slice(0,40),m:o.m.slice(0,400),d:String(o.d||"").slice(0,30)}:null}catch{return null}};
+function view(d){document.title=(d.f||"Someone")+" has a surprise for you";
+ $("rv").innerHTML=`<div class="reveal"><p class="eyebrow">${d.d?esc(d.d)+" &middot; ":""}${d.t?esc(d.t)+", ":""}you have a little something</p><button type="button" class="env" id="env" aria-label="Open your surprise"><span class="flap"></span><span class="heartseal" aria-hidden="true">&#9829;</span></button><p class="muted" id="hint">Tap the envelope to open it</p>
+ <div class="rcard" id="rcard" hidden><p class="rmsg" id="rmsg"></p><p class="rfrom" id="rfrom"></p></div>
+ <div id="cta" hidden><p class="muted">Know someone who deserves this feeling?</p><a class="btn" href="gift-finder.html">Find a gift in 30 seconds</a></div></div>`;
+ $("env").onclick=()=>{$("env").classList.add("open");$("hint").hidden=true;$("rmsg").textContent=d.m;$("rfrom").textContent=d.f?"With love, "+d.f:"";$("rcard").hidden=false;setTimeout(()=>{$("cta").hidden=false},900);$("rcard").scrollIntoView({block:"center",behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});};}
+function create(){let pre="";try{pre=sessionStorage.getItem("sr_note")||""}catch{}
+ $("rv").innerHTML=`<p class="eyebrow">Make it unforgettable</p><h2 style="margin:6px 0 8px">Send a surprise reveal 💌</h2><p class="muted" style="margin-bottom:16px">Write a message and get a private-feeling link. When they tap it, an envelope opens and your message appears. Send it the moment their gift is on its way, or the moment it arrives.</p>
+ <div class="field"><label for="r_f">Your name</label><input id="r_f" maxlength="40" autocomplete="given-name"></div><div class="field"><label for="r_t">Their name</label><input id="r_t" maxlength="40"></div>
+ <div class="field"><label for="r_m">Your message</label><textarea id="r_m" rows="5" maxlength="400">${esc(pre)}</textarea><div class="muted" id="r_c" style="text-align:right">0/400</div></div>
+ <button class="btn" id="r_go" type="button">Create my link</button><div id="r_out" style="margin-top:18px"></div>
+ <p class="muted" style="margin-top:18px;font-size:.85rem">Privacy: your message is stored inside the link itself. We do not save it on our servers. Anyone who has the link can read it, so send it only to them.</p>`;
+ const m=$("r_m"),cnt=()=>$("r_c").textContent=m.value.length+"/400";m.oninput=cnt;cnt();
+ $("r_go").onclick=()=>{const msg=m.value.trim();if(msg.length<3){toast("Write a short message first.",1);return;}
+  const url=location.origin+location.pathname+"#"+enc({f:$("r_f").value.trim(),t:$("r_t").value.trim(),m:msg}),wa="https://wa.me/?text="+encodeURIComponent("I have a little surprise for you 💌 Open it when you're ready: "+url);
+  $("r_out").innerHTML=`<div class="field"><label for="r_u">Your link</label><input id="r_u" readonly value="${esc(url)}"></div><button class="btn ghost" id="r_cp" type="button">Copy link</button> <a class="btn" target="_blank" rel="noopener" href="${esc(wa)}">Send on WhatsApp</a> <a class="btn ghost" href="#${esc(url.split("#")[1])}" id="r_pv">Preview it</a>`;
+  $("r_cp").onclick=async()=>{try{await navigator.clipboard.writeText(url);toast("Link copied");}catch{$("r_u").select();toast("Press copy on your keyboard");}};
+  $("r_pv").onclick=()=>setTimeout(route,0);};}
+function createWeek(){$("rv").innerHTML=`<p class="eyebrow">Surprise Week</p><h2 style="margin:6px 0 8px">Plan your 3 messages 💌</h2><p class="muted" style="margin-bottom:16px">Write one short message for each day. You'll get three links. Send each one on its day, when they open that day's gift.</p>
+ <div class="field"><label for="w_f">Your name</label><input id="w_f" maxlength="40"></div><div class="field"><label for="w_t">Their name</label><input id="w_t" maxlength="40"></div>
+ ${[1,2,3].map(n=>`<div class="field"><label for="w_m${n}">Day ${n} message</label><textarea id="w_m${n}" rows="3" maxlength="400"></textarea></div>`).join("")}
+ <button class="btn" id="w_go" type="button">Create my 3 links</button><div id="w_out" style="margin-top:18px"></div><p class="muted" style="margin-top:18px;font-size:.85rem">Privacy: each message is stored inside its own link. We do not save it on our servers. Anyone with a link can read that message.</p>`;
+ $("w_go").onclick=()=>{const ms=[1,2,3].map(n=>$("w_m"+n).value.trim());if(ms.some(x=>x.length<3)){toast("Write a short message for each of the 3 days.",1);return;}
+  $("w_out").innerHTML=ms.map((m,i)=>{const url=location.origin+location.pathname+"#"+enc({f:$("w_f").value.trim(),t:$("w_t").value.trim(),m,d:"Day "+(i+1)+" of 3"}),wa="https://wa.me/?text="+encodeURIComponent("Day "+(i+1)+" 💌 Open it when you're ready: "+url);
+   return `<div class="card" style="margin-bottom:10px"><b>Day ${i+1}</b><div class="field"><input readonly aria-label="Day ${i+1} link" value="${esc(url)}"></div><button class="btn ghost sm" type="button" data-cp="${esc(url)}">Copy link</button> <a class="btn sm" target="_blank" rel="noopener" href="${esc(wa)}">Send on WhatsApp</a></div>`}).join("");
+  $("w_out").onclick=async e=>{const b=e.target.closest("[data-cp]");if(b){try{await navigator.clipboard.writeText(b.dataset.cp);toast("Link copied");}catch{toast("Select the link and copy it");}}};};}
+function route(){const h=location.hash.slice(1);if(!h){new URLSearchParams(location.search).get('week')==='1'?createWeek():create();return;}const d=dec(h);d?view(d):($("rv").innerHTML='<div class="empty">This link looks incomplete. Ask them to send it again, or <a href="reveal.html">write your own surprise</a>.</div>');}
+addEventListener("hashchange",route);route();
+</script></body></html>

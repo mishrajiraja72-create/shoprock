@@ -6,13 +6,13 @@
 <div id="prev"></div>
 <section class="rule" id="occ" style="padding:32px 0 0"><p class="eyebrow">Never miss a moment</p><h3 style="margin:8px 0 6px">Remember our special dates</h3>
 <p class="muted" id="occnote" style="margin-bottom:14px">Save birthdays and anniversaries here to get gift ideas on this device. Reminders by email are optional and only happen if you tick the consent box below.</p>
-<div id="occlist"></div>
-<div class="row"><div class="field"><label for="o_t">Occasion</label><select id="o_t"><option>Birthday</option><option>Anniversary</option><option>Other</option></select></div><div class="field"><label for="o_n">Whose? (optional)</label><input id="o_n" maxlength="40"></div><div class="field"><label for="o_d">Date</label><input id="o_d" type="date"></div></div>
+<div id="occlist"></div><div id="moments"></div>
+<div class="row"><div class="field"><label for="o_t">Occasion</label><select id="o_t"><option>Birthday</option><option>Anniversary</option><option>Other</option></select></div><div class="field"><label for="o_n">Whose? (optional)</label><input id="o_n" maxlength="40"></div><div class="field"><label for="o_d">Date (for an anniversary: the day you got together)</label><input id="o_d" type="date"></div></div>
 <button class="btn ghost sm" id="o_add" type="button">Save this date</button>
 <form id="pref" style="margin-top:24px" novalidate><h3 style="margin-bottom:8px">Email reminders (optional)</h3>
 <div class="field"><label for="p_e">Email</label><input id="p_e" type="email" autocomplete="email"></div>
 <label class="consent"><input type="checkbox" id="p_c"> Yes, email me a reminder before the dates I saved above, and occasional gift ideas for them. I can unsubscribe any time on this page.</label>
-<p class="muted" id="p_s" style="margin:10px 0"></p><button class="btn" id="p_go">Sign up for reminders</button></form>
+<p class="muted" style="margin:6px 0;font-size:.85rem">Emails cover the yearly date only, sent about a week before. The moments list above is always available here.</p><p class="muted" id="p_s" style="margin:10px 0"></p><button class="btn" id="p_go">Sign up for reminders</button></form>
 <form id="opt" style="margin-top:24px" novalidate><h3 style="margin-bottom:8px">Unsubscribe</h3><div class="field"><label for="u_e">Email</label><input id="u_e" type="email"></div><button class="btn ghost" id="u_go">Stop all reminder emails</button></form>
 </section></div></section>
 <div id="ftr"></div><script src="js/common.js"></script><script src="js/extras.js"></script>
@@ -25,8 +25,7 @@ function drawWish(){const ids=Wish.get(),items=ids.map(i=>CAT.find(p=>p.product_
 function drawPrev(){let h=[];try{h=JSON.parse(localStorage.getItem("sr_orders")||"[]")}catch{}const ids=[...new Set(h.flatMap(o=>o.p||[]))],items=ids.map(i=>CAT.find(p=>p.product_id===i)).filter(Boolean);
  $("prev").innerHTML=items.length?`<section class="recs"><h3>Gifts you have ordered before</h3><p class="muted">From this device. Order references: ${h.slice(0,5).map(o=>`<a href="track.html">${esc(o.id)}</a>`).join(", ")}</p><div class="rgrid">${items.slice(0,4).map(recCard).join("")}</div></section>`:"";}
 function drawOcc(){const a=occ();$("occlist").innerHTML=a.length?'<ul class="hl">'+a.map((x,i)=>`<li>${esc(x.t)}${x.n?" &middot; "+esc(x.n):""} &middot; ${esc(fmtDate(x.d))} <button class="btn ghost sm" data-od="${i}" aria-label="Delete this date">Delete</button></li>`).join("")+"</ul>":"";
- const soon=a.map(x=>{const d=new Date(x.d),n=new Date();let nx=new Date(n.getFullYear(),d.getMonth(),d.getDate());if(nx<new Date(n.getFullYear(),n.getMonth(),n.getDate()))nx=new Date(n.getFullYear()+1,d.getMonth(),d.getDate());return{x,days:Math.round((nx-n)/864e5)}}).filter(o=>o.days<=45).sort((a,b)=>a.days-b.days)[0];
- if(soon&&CAT.length){const l=afterRecs(CAT.filter(p=>p.available!==false),S,[],3);$("occnote").innerHTML=`${esc(soon.x.t)}${soon.x.n?" for "+esc(soon.x.n):""} is in ${soon.days} day${soon.days==1?"":"s"}. A few ideas:`;$("occlist").insertAdjacentHTML("beforeend",recSection(l,"Gift ideas"));}}
+ const ms=momentsFor(a,new Date(),6);$("moments").innerHTML=ms.length&&CAT.length?`<h3 style="margin:22px 0 4px">Your moments</h3><p class="muted" style="margin-bottom:10px">What's coming up, with gift ideas from our collection.</p><ol class="timeline">${ms.map((m,i)=>{const ideas=momentIdeas(CAT,S,m.kind,2);return `<li class="${i===0?"next":""}"><div class="tl-when"><b>${m.daysAway===0?"Today":m.daysAway===1?"Tomorrow":"In "+m.daysAway+" days"}</b><span class="muted">${esc(m.date.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}))}</span></div><div><b>${esc(m.label)}</b>${m.name?" &middot; "+esc(m.name):""}<div class="tl-ideas">${ideas.map(p=>`<a href="product.html?id=${encodeURIComponent(p.product_id)}" data-rc="${esc(p.product_id)}">${esc(p.name)} &middot; ${inr(p.price)}</a>`).join("")}</div></div></li>`}).join("")}</ol>`:"";}
 document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
  if(b.dataset.c){if(!cartQty(b.dataset.c))Cart.add(b.dataset.c,1);drawWish();}
  else if(b.dataset.w){Wish.set(Wish.get().filter(x=>x!==b.dataset.w));drawWish();}
@@ -38,7 +37,7 @@ $("pref").onsubmit=async e=>{e.preventDefault();const em=$("p_e").value.trim();
  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){toast("Enter a valid email.",1);return;}if(!occ().length){toast("Save at least one date first.",1);return;}
  $("p_go").disabled=true;try{await api("public.preferences",{email:em,consent:true,consent_text:$("p_c").parentElement.textContent.trim().slice(0,300),dates:occ().map(x=>({t:x.t,n:x.n,d:x.d}))});toast("You're signed up. You can unsubscribe here any time.");}catch(err){toast(err.message,1);}$("p_go").disabled=false;};
 $("opt").onsubmit=async e=>{e.preventDefault();const em=$("u_e").value.trim();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){toast("Enter the email to unsubscribe.",1);return;}try{await api("public.optout",{email:em});toast("Unsubscribed. No further reminder emails.");}catch(err){toast(err.message,1);}};
-document.addEventListener("wish:change",drawWish);document.addEventListener("cart:change",drawWish);
+document.addEventListener("click",e=>{const rc=e.target.closest("[data-rc]");if(rc)track("rec_click",{product_id:rc.dataset.rc,from:"moments"});});document.addEventListener("wish:change",drawWish);document.addEventListener("cart:change",drawWish);
 (async()=>{try{[CAT,S]=await Promise.all([loadProducts(),siteCfg()]);}catch{$("wl").innerHTML='<div class="errorbox">Could not load your saved gifts. Please retry.</div>';return;}
  drawWish();drawPrev();drawOcc();const c=await loadConfig();
  if(!c.v3){["p_go","u_go"].forEach(i=>$(i).disabled=true);$("p_s").textContent="Email reminders are not switched on yet, so nothing can be sent. Your saved dates stay on this device.";$("pref").style.opacity=.7;}

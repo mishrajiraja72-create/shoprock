@@ -40,6 +40,14 @@ with sync_playwright() as p:
     pg.fill("#b_p","1599"); pg.click("#b_go"); pg.wait_for_timeout(600)
     bl=json.loads(m.settings["site_json"]).get("bundles",[]); t("12 bundle saved", len(bl)==1 and bl[0]["price"]==1599 and bl[0]["items"]==["P1","P2"], bl)
     pg2.evaluate("sessionStorage.clear()"); pg2.reload(); pg2.wait_for_selector(".vchip"); pg2.wait_for_timeout(600); t("12 storefront shows saved bundle with real saving ₹199", "You save" in pg2.inner_text("#bundles") and "199" in pg2.inner_text("#bundles"), pg2.inner_text("#bundles")[:150])
+    # Surprise Week validation
+    pg.click("#nav a[data-v='bundles']"); pg.wait_for_selector("#b_go"); pg.fill("#b_n","Week"); pg.check("[data-bp='P1']"); pg.check("[data-bp='P2']"); pg.check("#b_w"); pg.click("#b_go"); pg.wait_for_timeout(400)
+    t("12 Surprise Week with 2 products rejected", not any(x.get("kind")=="week" for x in json.loads(m.settings["site_json"]).get("bundles",[])))
+    pg.check("[data-bp='P3']"); pg.fill("#b_p","2000"); pg.click("#b_go"); pg.wait_for_timeout(600)
+    wk=[x for x in json.loads(m.settings["site_json"]).get("bundles",[]) if x.get("kind")=="week"]; t("12 Surprise Week with exactly 3 products saved (kind=week)", len(wk)==1 and wk[0]["price"]==2000 and len(wk[0]["items"])==3, wk)
+    # thank-you setting persists
+    pg.click("#nav a[data-v='settings']"); pg.wait_for_selector("[data-s='thanks_percent']"); pg.fill("[data-s='thanks_percent']","10"); pg.click("button:has-text('Save Thank-you code after delivery')"); pg.wait_for_timeout(600)
+    t("12 thank-you percent saved via dashboard", m.settings.get("thanks_percent")=="10", m.settings)
     # analytics/reminders honest when backend lacks support
     pg.click("#nav a[data-v='analytics']"); pg.wait_for_timeout(500); t("analytics shows blocker, no fake numbers", "needs BACKEND-PATCH-v3" in pg.inner_text("#view") and "₹" not in pg.inner_text("#view"))
     pg.click("#nav a[data-v='reminders']"); pg.wait_for_timeout(500); t("reminders shows blocker, no fake rows", "Nothing is being collected" in pg.inner_text("#view"))

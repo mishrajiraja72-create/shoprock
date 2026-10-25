@@ -1,0 +1,22 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gift Finder -- SHOPROCK</title><link rel="stylesheet" href="css/shoprock.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/premium.css"></head><body>
+<div id="hdr"></div>
+<section><div class="container" style="max-width:720px"><p class="eyebrow">30-second gift finder</p><h2 style="margin:6px 0 8px">Tell us about them. We'll find the one.</h2>
+<p class="muted" style="margin-bottom:20px">Four quick questions. We only suggest gifts that are actually in our collection, and we tell you why.</p>
+<div id="fq" aria-live="polite"></div><div id="fr"></div></div></section>
+<div id="ftr"></div><script src="js/common.js"></script><script src="js/extras.js"></script>
+<script>
+const $=i=>document.getElementById(i),Q=[["who","Who is it for?",FINDER.who.map(x=>x[0])],["occ","What's the moment?",FINDER.occ.map(x=>x[0])],["vibe","What do they love?",FINDER.vibe.map(x=>x[0])],["budget","What feels right to spend?",FINDER.budget.map(x=>x[0])]];
+let step=0,A={},CAT=[],S={};
+function ask(){const q=Q[step];$("fr").innerHTML="";$("fq").innerHTML=`<div class="card"><p class="muted" style="margin-bottom:6px">Question ${step+1} of ${Q.length}</p><div class="sbar" aria-hidden="true"><i style="width:${Math.round(step/Q.length*100)}%"></i></div><h3 style="margin:14px 0">${esc(q[1])}</h3><div class="fopts" role="group" aria-label="${esc(q[1])}">${q[2].map((o,i)=>`<button type="button" class="vchip" data-i="${i}">${esc(o)}</button>`).join("")}</div>${step?'<p style="margin-top:14px"><a href="#" id="back">Back</a></p>':""}</div>`;
+ const f=$("fq").querySelector(".vchip");if(f)f.focus({preventScroll:true});}
+function show(){const r=finderRank(CAT,S,A);$("fq").innerHTML="";
+ if(!r.list.length){$("fr").innerHTML='<div class="empty">We have no gifts available right now. <a href="shop.html">Browse the collection</a></div>';return;}
+ $("fr").innerHTML=`<h3 style="margin-bottom:6px">${r.exact?"Our top picks for them":"Nothing in that budget yet, here are the closest"}</h3><p class="muted" style="margin-bottom:14px">${r.exact?"":"Try a different budget, or look at these."}</p><div class="cart-list">${r.list.map(x=>`<div class="cl"><img src="${esc(x.p.image_url)}" alt=""><div class="cb"><a href="product.html?id=${encodeURIComponent(x.p.product_id)}" data-rc="${esc(x.p.product_id)}">${esc(x.p.name)}</a><div class="muted">${inr(x.p.price)}</div>${x.why.length?`<div class="muted" style="margin-top:4px">${x.why.map(esc).join(" &middot; ")}</div>`:""}</div><div class="ct"><a class="btn sm" href="product.html?id=${encodeURIComponent(x.p.product_id)}" data-rc="${esc(x.p.product_id)}">View</a></div></div>`).join("")}</div>
+ <p style="margin-top:16px"><a class="btn ghost" href="#" id="again">Start again</a> <a class="btn ghost" href="shop.html">Browse all gifts</a></p>`;
+ $("fr").querySelector("a").focus({preventScroll:true});}
+document.addEventListener("click",e=>{const c=e.target.closest(".vchip");if(c&&$("fq").contains(c)){A[Q[step][0]]=+c.dataset.i;step++;step<Q.length?ask():show();return;}
+ if(e.target.id==="back"){e.preventDefault();step--;ask();}else if(e.target.id==="again"){e.preventDefault();step=0;A={};ask();}
+ const rc=e.target.closest("[data-rc]");if(rc)track("rec_click",{product_id:rc.dataset.rc,from:"finder"});});
+(async()=>{try{[CAT,S]=await Promise.all([loadProducts(),siteCfg()]);}catch{$("fq").innerHTML='<div class="errorbox">Could not load our collection. Please retry in a moment.</div>';return;}ask();})();
+</script></body></html>

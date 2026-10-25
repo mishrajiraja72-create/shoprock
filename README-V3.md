@@ -1,28 +1,40 @@
-# SHOPROCK v3 — what is real, what is blocked
+# SHOPROCK v3
 
-## Tested (all actually run, Chromium via Playwright; see tests/)
-`sh tests/run_all.sh` -> unit 19/19, storefront flow 63/63, v3 features 34/34, dashboard->storefront 12/12.
-Browser tests run against a MOCK of your Apps Script API (tests/mock_api.py), not your live backend.
+## Deploy in this ORDER
+1. **Apps Script first.** Open Code.gs, scroll to the very bottom, paste ALL of BACKEND-PATCH-v3.gs there.
+   Then change ONE line in route_():  `default: fail_('Unknown action');`  ->
+   `default: if (v3Handles_(action)) return v3Route_(action, b, s); fail_('Unknown action');`
+   Ctrl+S -> Deploy -> Manage deployments -> pencil -> New version -> Deploy.
+2. **GitHub:** upload the contents of this folder (site/, dashboard/, etc.), commit, wait 1-2 min, hard refresh.
+3. Optional reminder emails: in Apps Script run `installReminderTrigger` once; in dashboard Settings fill "Website link".
 
-## Bugs found in the uploaded ZIP and fixed
-1. Add to Cart threw "Assignment to constant variable" (const busy) -> nothing was added, no mini-cart.
-2. Double-click on Add to Cart navigated to the cart instead of adding once.
-3. Checkout with empty/corrupt cart threw a null error.
-4. Literal "[OWNER REVIEW] support email / phone" could show to customers (footer/tracking).
-5. Product schema always said InStock; reviews block always shown; add-on "Add" could stack quantity.
+## Tests actually run (`sh tests/run_all.sh`)
+unit 19, backend patch 41 (in-memory Sheets stub + verbatim helper copies from your Code.gs), storefront browser 63,
+v3 browser 37, dashboard->storefront browser 12. NOT run: your live Apps Script / live sheet / live site.
 
-## Works now with NO backend change (persists via existing settings.set -> site_json)
-Variants (options), story/occasion/recipient/tags, bundles (regular prices), gift-note templates + reset/skip,
-wishlist (guest, this device), saved occasion dates (this device), previous gifts (this device),
-qty controls in checkout that keep entered details, WhatsApp links, mini-cart, shipping line, confirmation items.
+## Server-side behaviour (BACKEND-PATCH-v3.gs)
+- Variant prices and bundle savings are computed on the server from site_json. Browser prices are ignored.
+- Gift note: already saved by your createOrder_ into Orders.gift_message (max 300 chars, all item notes joined).
+- Repeat submit with the same key returns full payment details.
+- Tracking: rate-limited (10 tries / 15 min per order id); real status updates; no internal notes.
+- Analytics events, reminder consent/opt-out, owner-only report + sign-up list (OWNER / FINANCE roles).
 
-## Needs BACKEND-PATCH-v3.gs (written, NOT run against your live script — main script not in ZIP)
-Analytics events + dashboard report, reminder consent + opt-out + email reminders, owner lists.
-## Still blocked (needs your createOrder code)
-Variant/bundle PRICES at checkout (v3_pricing stays false), order-saved gift note + tracking updates/estimates
-cannot be verified, order-lookup brute-force limits. Payment verification is unchanged and never auto-marks PAID.
+## Still not done / limits
+- Reminder emails use Gmail's free MailApp quota (small daily limit); WhatsApp reminders need a paid API (not built).
+- Wishlist and saved dates live in the customer's browser only (no accounts).
+- Dashboard config changes reach customers within ~5 min (cache).
+- Payment verification is unchanged: nothing becomes PAID without your existing manual/gateway confirmation.
 
-## Deploy
-1. GitHub Pages: replace repo contents with this project, commit, push; wait for Pages build; hard-refresh.
-2. Apps Script: (optional, for analytics/reminders) paste BACKEND-PATCH-v3.gs below existing code, follow the 3 integration steps in its header, run initializeDatabase if you use it, Deploy -> Manage deployments -> New version.
-3. Dashboard: open it, Product details & variants / Bundles. Config is cached ~5 min per visitor.
+## Creative features (no backend needed)
+- gift-finder.html: 4 questions -> up to 3 real products; reasons only from real product data; budget is a hard filter.
+- reveal.html: write a message, get a link; recipient taps an envelope to read it. The message lives inside the link
+  (nothing stored on any server). Linked from the order confirmation and the tracking page.
+
+## Customer loop features (this round)
+- **After delivery** (track.html): optional per-item review (existing moderated reviewCreate) + optional one-time thank-you code.
+  The code is NOT tied to a review or rating. Off until Settings -> "Thank-you code after delivery" is above 0 (max 30%).
+  Needs BACKEND-PATCH-v3.gs deployed (public.thanksCoupon).
+- **Moments** (wishlist.html): from saved dates, upcoming birthdays/anniversaries and milestones (50/100/200/300/500/1000... days, yearly) with gift ideas
+  from real products. Works with no backend. Email reminders still cover the yearly date only.
+- **Surprise Week**: Dashboard -> Bundles -> tick "Surprise Week" (exactly 3 products). One order, real bundle saving (only when server pricing is on),
+  plus a planner (reveal.html?week=1) that makes 3 reveal links (Day 1/2/3 of 3). Does NOT promise separate-day delivery.

@@ -26,6 +26,7 @@ const Cart = {
   get() { try { const c = JSON.parse(localStorage.getItem("sr_cart") || "[]"); return Array.isArray(c) ? c.filter(x => x && typeof x.product_id === "string" && x.qty > 0) : []; } catch { return []; } },
   set(c) { try { localStorage.setItem("sr_cart", JSON.stringify(c)); } catch {} Cart.badge(); try { document.dispatchEvent(new Event("cart:change")); } catch {} },
   add(id, qty = 1, note, variant, bundle) { const c = Cart.get(), i = c.find(x => x.product_id === id); if (i) { i.qty = Math.min(10, i.qty + qty); if (note) i.note = note; if (variant) i.variant = variant; } else { const o = {product_id:id, qty}; if (note) o.note = note; if (variant) o.variant = String(variant).slice(0, 40); if (bundle) o.bundle = String(bundle).slice(0, 40); c.push(o); } Cart.set(c); },
+  setBundle(id, b) { Cart.set(Cart.get().map(x => x.product_id === id ? {...x, bundle:String(b || "").slice(0, 40)} : x)); },
   setVariant(id, v) { Cart.set(Cart.get().map(x => x.product_id === id ? {...x, variant:String(v || "").slice(0, 40)} : x)); },
   setNote(id, note) { Cart.set(Cart.get().map(x => x.product_id === id ? {...x, note:String(note || "").slice(0, 300)} : x)); },
   setQty(id, q) { q = Math.floor(Number(q)); if (!isFinite(q)) return; const c = Cart.get().map(x => x.product_id === id ? {...x, qty: Math.max(0, Math.min(10, q))} : x).filter(x => x.qty > 0); Cart.set(c); },
@@ -62,7 +63,7 @@ function header(active) {
   return `<div class="announce" id="announce">Curated gifts for couples &middot; Secure ordering &middot; Track every order</div>
   <div class="container"><nav class="nav"><a class="logo" href="index.html">SHOP<b>ROCK</b></a>
   <button class="nav-toggle" onclick="document.getElementById('nl').classList.toggle('open')" aria-label="Menu">Menu</button>
-  <ul id="nl"><li><a href="shop.html">Shop</a></li><li><a href="index.html#occasions">Occasions</a></li><li><a href="index.html#story">Why us</a></li><li><a href="track.html">Track order</a></li><li><a href="policies.html#faq">FAQ</a></li><li><a href="wishlist.html">Saved (<span id="wishCount">0</span>)</a></li><li><a href="cart.html">Cart (<span id="cartCount">0</span>)</a></li></ul></nav></div>`;
+  <ul id="nl"><li><a href="shop.html">Shop</a></li><li><a href="gift-finder.html">Gift Finder</a></li><li><a href="index.html#occasions">Occasions</a></li><li><a href="index.html#story">Why us</a></li><li><a href="track.html">Track order</a></li><li><a href="policies.html#faq">FAQ</a></li><li><a href="wishlist.html">Saved (<span id="wishCount">0</span>)</a></li><li><a href="cart.html">Cart (<span id="cartCount">0</span>)</a></li></ul></nav></div>`;
 }
 function footer() {
   return `<footer><div class="container cols"><div><div class="logo">SHOP<b>ROCK</b></div><p style="margin-top:12px" id="ftag">Thoughtful gifts for couples.</p><p style="margin-top:10px" id="fsoc"></p></div>
