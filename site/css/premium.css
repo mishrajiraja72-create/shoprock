@@ -161,3 +161,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
 .timeline{list-style:none;padding:0;margin:0}.timeline li{display:flex;gap:16px;padding:14px 0;border-top:1px solid var(--line)}.timeline li.next{background:rgba(243,166,200,.06);border-radius:10px;padding:14px 12px}
 .tl-when{flex:none;width:112px;display:flex;flex-direction:column}.tl-when span{font-size:.8rem}.tl-ideas{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px;font-size:.9rem}
 @media(max-width:420px){.timeline li{flex-direction:column;gap:6px}.tl-when{width:auto;flex-direction:row;gap:10px;align-items:baseline}}
+
+/* ===== v3: gifting options + account ===== */
+.special{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:16px 0}.special legend{padding:0 8px;color:var(--champagne,#e8d5a8)}
+.opt{display:flex;gap:12px;align-items:flex-start;text-transform:none;letter-spacing:0;padding:10px 0;cursor:pointer}.opt input{width:auto;margin-top:5px}.opt span{overflow-wrap:anywhere}

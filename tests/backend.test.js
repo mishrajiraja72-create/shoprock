@@ -56,23 +56,26 @@ function couponCheck_(code, subtotal){
   return {code:String(c.code).toUpperCase(), discount:Math.max(0,Math.min(d,subtotal))};
 }
 function notifyNewOrder_(){}
+function randomToken_(){return Utilities.getUuid().replace(/-/g,'')+Utilities.getUuid().replace(/-/g,'');}
 `;
 // ---- in-memory Google stubs ----
 const sheets={}; 
 const mkSheet=(name)=>{const rows=[];return {name,rows,appendRow(r){rows.push(r.slice())},getDataRange(){return {getValues:()=>rows.map(r=>r.slice())}},setFrozenRows(){},
-  getRange(r,c,nr=1,nc=1){return {setValue(v){rows[r-1][c-1]=v},setValues(vs){vs.forEach((row,i)=>row.forEach((v,j)=>{(rows[r-1+i]=rows[r-1+i]||[])[c-1+j]=v}))},getValues:()=>[]}}}};
+  deleteRow(i){rows.splice(i-1,1)},getLastColumn(){return Math.max(0,...rows.map(r=>r.length))},
+  getRange(r,c,nr=1,nc=1){return {getValues:()=>Array.from({length:nr},(_,i)=>Array.from({length:nc},(_,j)=>(rows[r-1+i]||[])[c-1+j]===undefined?'':rows[r-1+i][c-1+j])),setValue(v){(rows[r-1]=rows[r-1]||[])[c-1]=v},setValues(vs){vs.forEach((row,i)=>row.forEach((v,j)=>{(rows[r-1+i]=rows[r-1+i]||[])[c-1+j]=v}))}}}}};
 const ss={getSheetByName:n=>sheets[n]||null,insertSheet:n=>sheets[n]=mkSheet(n)};
 const cache=new Map(),mails=[];
 const sandbox={console,Date,JSON,Math,Number,String,Object,Array,RegExp,Error,isFinite,parseInt,
  SpreadsheetApp:{getActive:()=>ss},LockService:{getScriptLock:()=>({waitLock(){},releaseLock(){}})},
  CacheService:{getScriptCache:()=>({get:k=>cache.has(k)?cache.get(k):null,put:(k,v)=>cache.set(k,v),remove:k=>cache.delete(k)})},
- MailApp:{sendEmail:m=>mails.push(m)},ScriptApp:{getProjectTriggers:()=>[]},
+ MailApp:{sendEmail:(a,b2,c)=>mails.push(typeof a==="string"?{to:a,subject:b2,body:c}:a)},ScriptApp:{getProjectTriggers:()=>[]},
  Utilities:{getUuid:()=>crypto.randomUUID(),DigestAlgorithm:{SHA_256:"s"},computeDigest:(a,s)=>[...crypto.createHash("sha256").update(String(s)).digest()].map(b=>b>127?b-256:b)}};
 vm.createContext(sandbox);
 vm.runInContext(SCHEMA_SRC+fs.readFileSync(path.join(__dirname,"..","BACKEND-PATCH-v3.gs"),"utf8"),sandbox);
 const run=c=>vm.runInContext(c,sandbox); sandbox.__t=null;
 const sheetWith=(n)=>{sheets[n]=mkSheet(n);sheets[n].appendRow(run("SCHEMA."+n));};
 ["ProductResearch","Orders","OrderItems","FulfilmentEvents","ActivityLog","BusinessSettings","Reviews","Coupons"].forEach(sheetWith);
+sheets.Orders.rows[0].pop();
 const addRow=(n,o)=>run(`appendRow_(${JSON.stringify(n)},${JSON.stringify(o)})`);
 const setSet=(k,v)=>{const rs=sheets.BusinessSettings.rows;const i=rs.findIndex(r=>r[0]===k);i>0?rs[i][1]=v:rs.push([k,v]);};
 [["P1","Couple Lamp",1299],["P2","Love Box",499],["P3","Roses",799]].forEach(([id,n,p])=>addRow("ProductResearch",{product_id:id,name:n,category:"G",selling_price:p,status:"PUBLISHED",published:true,supplier_price:200,packaging_cost:10,shipping_cost:20,payment_fee_pct:2}));
@@ -173,4 +176,74 @@ t("thanks: code is single-use",/fully used/.test(err(()=>sandbox.createOrder_(Ob
 setSet("thanks_percent","90"); const o3=place([{product_id:"P2",qty:1}]);setO(o3.order_id,{order_status:"DELIVERED",payment_status:"PAID"});
 t("thanks: percent is capped at 30%",sandbox.v3Route_("public.thanksCoupon",{order_id:o3.order_id,phone_last4:"3210"},null).percent===30);
 t("thanks: action is public + routed",run("v3Handles_('public.thanksCoupon')&&PUBLIC_ACTIONS['public.thanksCoupon']===1"));
+
+// ---- gifting options ----
+cache.clear();
+const site2=JSON.parse(JSON.stringify(site)); site2.gifting={secret:{on:true,price:0,label:"Send it as a secret"},packaging:{on:true,name:"Premium gift box",price:99,desc:"x"}};
+setSet("site_json",JSON.stringify(site2)); setSet("packaging_cost","40");
+const hdr=()=>sheets.Orders.rows[0];
+r=place([{product_id:"P2",qty:1}],{gift:{packaging:true,packaging_price:1,secret:false}});
+const lo=lastOrder(), lastItems=run("readAll_('OrderItems')").filter(i=>i.order_id===r.order_id);
+t("gift: packaging price is charged from SERVER config (499+99=598); client 'packaging_price:1' ignored",r.total===598,r.total);
+t("gift: packaging saved as an order line (OPT-PACKAGING, 99, cost 40 for profit reports)",lastItems.some(i=>i.product_id==="OPT-PACKAGING"&&i.unit_price===99&&i.unit_cost===40),lastItems);
+t("gift: gift_json + readable staff note saved",JSON.parse(lo.gift_json).packaging.name==="Premium gift box"&&/PACKAGING: Premium gift box/.test(lo.internal_notes),[lo.gift_json,lo.internal_notes]);
+t("gift: Orders sheet got a 'gift_json' header automatically",hdr().includes("gift_json")&&hdr().length===run("SCHEMA.Orders.length"));
+r=place([{product_id:"P2",qty:1}],{gift:{secret:true,recipient_name:"Asha",recipient_phone:"98765 43210"}});
+const lo2=lastOrder(), items2=run("readAll_('OrderItems')").filter(i=>i.order_id===r.order_id);
+t("gift: FREE secret option adds no charge and no fake line (total 499)",r.total===499&&items2.length===1,[r.total,items2.length]);
+t("gift: secret + recipient flagged for staff",JSON.parse(lo2.gift_json).secret===true&&JSON.parse(lo2.gift_json).recipient.phone==="9876543210"&&/SECRET GIFT/.test(lo2.internal_notes)&&/DELIVER TO: Asha/.test(lo2.internal_notes));
+t("gift: bad recipient mobile rejected",/valid mobile/.test(err(()=>place([{product_id:"P2",qty:1}],{gift:{recipient_name:"A",recipient_phone:"12345"}}))));
+t("gift: no options chosen => no gift_json, no extra rows",(place([{product_id:"P2",qty:1}]),lastOrder().gift_json===""));
+site2.gifting.packaging.on=false; setSet("site_json",JSON.stringify(site2));
+t("gift: switched-off packaging cannot be ordered",/not available/.test(err(()=>place([{product_id:"P2",qty:1}],{gift:{packaging:true}}))));
+site2.gifting.packaging.on=true; site2.gifting.secret.price=49; setSet("site_json",JSON.stringify(site2));
+t("gift: paid secret option (+49) charged and listed as a line",place([{product_id:"P2",qty:1}],{gift:{secret:true}}).total===548&&run("readAll_('OrderItems')").pop().product_id==="OPT-SECRET");
+const bw=place([{product_id:"P1",qty:1,bundle:"B1"},{product_id:"P2",qty:1,bundle:"B1"}],{gift:{packaging:true},coupon_code:"TEN"});
+t("gift: options + bundle saving + coupon combine correctly (1599-160+99+49? no secret =1538)",bw.total===1538,bw.total);
+
+// ---- customer accounts ----
+cache.clear(); mails.length=0;
+place([{product_id:"P2",qty:1}],{email:"Asha@Example.com"}); const mine=lastOrder().order_id;
+place([{product_id:"P3",qty:1}],{email:"other@x.co"}); const theirs=lastOrder().order_id;
+setSet("checkout_mode","DEMO"); place([{product_id:"P2",qty:1}],{email:"asha@example.com"}); const demoMine=lastOrder().order_id; setSet("checkout_mode","MANUAL");
+const S=(e)=>sandbox.v3Route_("public.acctSend",{email:e},null), codeFromMail=()=>/code is (\d{6})/.exec(mails[mails.length-1].body)[1];
+const before2=mails.length; let sr=S("stranger@nowhere.co");
+t("acct: unknown email gets the SAME answer but no email is sent and no code stored",sr.sent===true&&mails.length===before2&&!(sheets.CustCodes&&sheets.CustCodes.rows.length>1));
+S("asha@example.com"); const code=codeFromMail();
+t("acct: known email (case-insensitive) gets a 6-digit code by email",mails.length===before2+1&&/^\d{6}$/.test(code)&&mails[mails.length-1].to==="asha@example.com");
+t("acct: code is stored HASHED, never in plain text",!JSON.stringify(sheets.CustCodes.rows).includes(code));
+const V=(e,c)=>sandbox.v3Route_("public.acctVerify",{email:e,code:c},null);
+t("acct: wrong code rejected",/not valid or has expired/.test(err(()=>V("asha@example.com","000000"))||""));
+const ok=V("asha@example.com",code);
+t("acct: right code => session token; token stored only as a hash",/^[0-9a-f]{64}$/.test(ok.token)&&!JSON.stringify(sheets.CustSessions.rows).includes(ok.token)&&ok.email==="asha@example.com");
+t("acct: a code works ONCE",/not valid or has expired/.test(err(()=>V("asha@example.com",code))||""));
+const O=(tok)=>sandbox.v3Route_("public.acctOrders",{token:tok},null), lst=O(ok.token);
+t("acct: lists ONLY my real orders (not others', not demo)",lst.length===1&&lst[0].order_id===mine&&!lst.some(o=>o.order_id===theirs||o.order_id===demoMine),lst.map(o=>o.order_id));
+t("acct: order data has items + updates + gift note, but NO phone/address/internal notes",lst[0].items.length>=1&&lst[0].updates[0].status==="Order placed"&&!/phone|address|internal_notes|pin\b/.test(Object.keys(lst[0]).join()));
+t("acct: bad/expired token => 'sign in again'",err(()=>O("x".repeat(64)))==="Please sign in again.");
+// lock-out after 5 wrong codes
+cache.clear(); S("asha@example.com"); const cLock=codeFromMail(); for(let i=0;i<5;i++) err(()=>V("asha@example.com","111111"));
+t("acct: 5 wrong guesses kill the code (even the right one then fails)",/not valid or has expired/.test(err(()=>V("asha@example.com",cLock))||""));
+// expiry
+cache.clear(); S("asha@example.com"); const c3=codeFromMail(); sheets.CustCodes.rows[1][2]=new Date(Date.now()-1000).toISOString();
+t("acct: expired code rejected",/not valid or has expired/.test(err(()=>V("asha@example.com",c3))||""));
+// send rate limit
+cache.clear(); let lim=null; for(let i=0;i<5&&!lim;i++){const e=err(()=>S("asha@example.com"));if(/Too many/.test(e||""))lim=i} t("acct: sending codes is rate-limited (max 3/hour per email)",lim===3,lim);
+// claim
+cache.clear(); S("asha@example.com"); const tok=V("asha@example.com",codeFromMail()).token;
+const oldNoEmail=place([{product_id:"P2",qty:1}]).order_id;
+const CL=(o,l)=>sandbox.v3Route_("public.acctClaim",{token:tok,order_id:o,phone_last4:l},null);
+t("acct: claiming an older order needs the right reference AND last 4 digits",err(()=>CL(oldNoEmail,"9999"))==="Order not found");
+t("acct: claim demo order refused",err(()=>CL(demoMine,"3210"))==="Order not found");
+CL(oldNoEmail,"3210"); CL(oldNoEmail,"3210");
+t("acct: claimed order now appears, only once",O(tok).filter(o=>o.order_id===oldNoEmail).length===1&&sheets.CustClaims.rows.length===2);
+t("acct: claim does not expose the order to a different account",(()=>{cache.clear();S("other@x.co");const t2=V("other@x.co",codeFromMail()).token;return !O(t2).some(o=>o.order_id===oldNoEmail)})());
+// logout
+sandbox.v3Route_("public.acctLogout",{token:tok},null);
+t("acct: logout kills the token",err(()=>O(tok))==="Please sign in again.");
+cache.clear(); S("asha@example.com"); const ta=V("asha@example.com",codeFromMail()).token; cache.clear(); S("asha@example.com"); const tb=V("asha@example.com",codeFromMail()).token;
+sandbox.v3Route_("public.acctLogout",{token:ta,all:true},null);
+t("acct: 'sign out everywhere' kills ALL my sessions",err(()=>O(ta))==="Please sign in again."&&err(()=>O(tb))==="Please sign in again.");
+t("acct: actions are public + routed",run("['Send','Verify','Orders','Claim','Logout'].every(a=>v3Handles_('public.acct'+a)&&PUBLIC_ACTIONS['public.acct'+a]===1)"));
+t("patch is safe to paste twice: gift_json column is not duplicated",(()=>{const src=require("fs").readFileSync(require("path").join(__dirname,"..","BACKEND-PATCH-v3.gs"),"utf8");vm.runInContext(src,sandbox);return run("SCHEMA.Orders.filter(c=>c==='gift_json').length")===1})());
 console.log(`\n${n} passed, ${f} failed`);process.exit(f?1:0);

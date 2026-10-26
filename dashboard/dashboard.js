@@ -101,7 +101,7 @@ const VIEWS = {
     $("view").innerHTML = `<div class="bar"><button class="btn sm" onclick="supplierForm()">Add supplier</button></div>` + (l.length ? table([["ID",r=>esc(r.supplier_id)],["Name",r=>esc(r.name)],["Fulfilment",r=>esc(r.fulfilment_method)],["Delivery",r=>esc(r.delivery_estimate)],["Quality",r=>esc(r.quality_status)],["Verified",r=>esc(String(r.last_verified).slice(0,10))]], l) : empty("No suppliers yet.")); },
 
   async orders() { let l; try { l = await api("orders.list"); } catch { l = await api("orders.listLimited"); }
-    $("view").innerHTML = (l.length ? table([["Order",r=>esc(r.order_id)],["Date",r=>esc(String(r.created_at).slice(0,10))],["Customer",r=>esc(r.customer_name)],["City",r=>esc(r.city)],["Total",r=>r.total===undefined?"—":inr(r.total)],["Payment",r=>r.payment_status?badge(r.payment_status):"—"],["Status",r=>badge(r.order_status)],["Tracking",r=>esc(r.tracking_number||"")],["Demo",r=>String(r.is_test)==="true"?"TEST":""],["",r=>orderActions(r)]], l) : empty("No orders yet.")) +
+    $("view").innerHTML = (l.length ? table([["Order",r=>esc(r.order_id)],["Date",r=>esc(String(r.created_at).slice(0,10))],["Customer",r=>esc(r.customer_name)],["Gift / packing",r=>giftCell(r)],["City",r=>esc(r.city)],["Total",r=>r.total===undefined?"—":inr(r.total)],["Payment",r=>r.payment_status?badge(r.payment_status):"—"],["Status",r=>badge(r.order_status)],["Tracking",r=>esc(r.tracking_number||"")],["Demo",r=>String(r.is_test)==="true"?"TEST":""],["",r=>orderActions(r)]], l) : empty("No orders yet.")) +
       `<div class="bar" style="margin-top:12px"><button class="btn ghost sm" onclick="exportSheet('Orders')">Export CSV</button></div>`; },
   async refunds() { $("view").innerHTML = `<p class="muted" style="margin-bottom:12px">Refunds are recorded here as a tracked manual process. Issue the actual payment-gateway refund in the gateway dashboard, then record it.</p><button class="btn sm" onclick="refundForm()">Record refund</button> <button class="btn ghost sm" onclick="exportSheet('Refunds')">Export CSV</button>`; },
 
@@ -252,6 +252,31 @@ VIEWS.analytics = async () => {
 VIEWS.reminders = async () => {
   let r; try { r = await api("prefs.list", {}); } catch (e) { $("view").innerHTML = `<div class="notice">Reminder sign-ups need BACKEND-PATCH-v3 deployed. Nothing is being collected or sent until then. (${esc(e.message)})</div>`; return; }
   $("view").innerHTML = `<div class="notice" style="margin-bottom:14px">Sending: ${esc(r.sending || "Reminders are only sent if you ran installReminderTrigger in Apps Script. Check Apps Script → Triggers.")}</div>` + (r.rows.length ? table([["Email",x => esc(x.email)],["Consent given",x => esc(String(x.consent_at || "").slice(0, 10))],["Dates",x => esc((x.dates || []).map(d => d.t + " " + d.d).join("; "))],["Status",x => badge(x.opted_out ? "OPTED OUT" : "SUBSCRIBED")]], r.rows) : empty("No sign-ups yet."));
+};
+
+
+/* ===== v3: gifting options (secret gift, premium packaging) + staff-visible gift/packing column ===== */
+function giftCell(r) { let g = {}; try { g = JSON.parse(r.gift_json || "{}"); } catch {} const t = [];
+  if (g.secret) t.push(badge("SECRET")); if (g.packaging) t.push(`<span class="badge">${esc(g.packaging.name)}</span>`); if (g.recipient) t.push("To: " + esc(g.recipient.name) + (g.recipient.phone ? " " + esc(g.recipient.phone) : ""));
+  if (r.gift_message) t.push(`<em>“${esc(r.gift_message)}”</em>`); return t.join("<br>") || "—"; }
+MENU.push(["gifting", "Gifting options"]); ROLE_MENU.OWNER = MENU.map(m => m[0]);
+VIEWS.gifting = async () => {
+  const [d, st] = await Promise.all([readSite(), api("settings.get")]), g = d.gifting || {}, p = g.packaging || {}, s = g.secret || {};
+  $("view").innerHTML = `<div class="notice" style="margin-bottom:14px">Customers see these options as promises. Switch on only what your team can really do for <b>every</b> order. Prices are charged by the server at checkout, and each order shows these choices in the Orders page ("Gift / packing" column).</div>
+  <div class="card" style="margin-bottom:14px"><h3 style="margin-bottom:8px">Premium packaging</h3><label style="text-transform:none;letter-spacing:0;display:block;margin-bottom:10px"><input type="checkbox" style="width:auto" id="gp_on" ${p.on ? "checked" : ""}> Offer premium packaging at checkout</label>
+   <div class="row"><div class="field"><label>Name customers see</label><input id="gp_name" maxlength="60" value="${esc(p.name || "Premium gift box")}"></div><div class="field"><label>Price (₹, 0 = free)</label><input id="gp_price" type="number" min="0" value="${esc(p.price ?? 99)}"></div><div class="field"><label>Your cost (₹, private, for profit reports)</label><input id="gp_cost" type="number" min="0" value="${esc(st.packaging_cost || 0)}"></div></div>
+   <div class="field"><label>What is included (be exact)</label><textarea id="gp_desc" rows="2" maxlength="200">${esc(p.desc || "")}</textarea></div></div>
+  <div class="card" style="margin-bottom:14px"><h3 style="margin-bottom:8px">Secret gift</h3><label style="text-transform:none;letter-spacing:0;display:block;margin-bottom:10px"><input type="checkbox" style="width:auto" id="gs_on" ${s.on ? "checked" : ""}> Offer "send it as a secret" at checkout</label>
+   <div class="row"><div class="field"><label>Name customers see</label><input id="gs_label" maxlength="60" value="${esc(s.label || "Send it as a secret")}"></div><div class="field"><label>Price (₹, 0 = free)</label><input id="gs_price" type="number" min="0" value="${esc(s.price ?? 0)}"></div></div>
+   <div class="field"><label>What exactly you do (shown to customers)</label><textarea id="gs_note" rows="2" maxlength="240">${esc(s.note || "")}</textarea></div></div>
+  <button class="btn" id="g_save">Save gifting options</button>`;
+  $("g_save").onclick = () => guarded(async () => { const n = id => Number($(id).value), pOn = $("gp_on").checked, sOn = $("gs_on").checked;
+    if (pOn && !$("gp_name").value.trim()) throw new Error("Give the packaging a name."); if (sOn && !$("gs_label").value.trim()) throw new Error("Give the secret-gift option a name.");
+    if (!(n("gp_price") >= 0) || !(n("gs_price") >= 0) || !(n("gp_cost") >= 0)) throw new Error("Prices must be 0 or more.");
+    if (pOn && !$("gp_desc").value.trim()) throw new Error("Describe exactly what the packaging includes.");
+    if (sOn && !$("gs_note").value.trim()) throw new Error("Say exactly what you do for a secret gift.");
+    await writeSite(x => { x.gifting = {packaging: {on: pOn, name: $("gp_name").value.trim(), price: Math.round(n("gp_price")), desc: $("gp_desc").value.trim()}, secret: {on: sOn, label: $("gs_label").value.trim(), price: Math.round(n("gs_price")), note: $("gs_note").value.trim()}}; });
+    await api("settings.set", {key: "packaging_cost", value: String(Math.round(n("gp_cost")))}); toast("Saved. Live at checkout."); });
 };
 
 if (S && S.token) start();

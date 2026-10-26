@@ -1,6 +1,7 @@
 /* ============================================================================
    SHOPROCK BACKEND PATCH v3  -- paste at the VERY BOTTOM of your Code.gs
-   (below BACKEND-PATCH.gs / patch v2). Functions defined here REPLACE the older
+   (below BACKEND-PATCH.gs / patch v2). If you pasted an older version of THIS patch before, delete it first
+   (from its first comment line to the end of the file), then paste this one. Functions defined here REPLACE the older
    functions of the same name (the same trick patch v2 used for publicConfig_).
 
    ONLY ONE EDIT in your existing code. In route_(), change the last line:
@@ -18,6 +19,8 @@
                      same idempotency key now returns the full payment details, not just an id.
    - trackOrder_   : rate-limited per order id; returns real status updates (from
                      FulfilmentEvents) -- status + date only, never internal notes/actor ids.
+   - Customer accounts (email code, no password): public.acctSend/acctVerify/acctOrders/acctClaim/acctLogout
+   - createOrder_ also handles secret gift / premium packaging / deliver-to-someone-else (only options switched ON in dashboard 'Gifting options'); adds an Orders column gift_json
    - public.event / public.preferences / public.optout / analytics.report / prefs.list
    - public.thanksCoupon: one-time thank-you code for a DELIVERED + PAID order. OFF until you set
                      dashboard Settings -> "Thank-you code after delivery" above 0. Not tied to any review or rating.
@@ -25,6 +28,8 @@
    TESTED against an in-memory stub of Sheets/Cache/Mail (tests/backend.test.js), NOT your live sheet.
    ========================================================================== */
 
+if (SCHEMA.Orders.indexOf('gift_json') < 0) SCHEMA.Orders.push('gift_json'); DEFAULT_SETTINGS.packaging_cost = '0';
+PUBLIC_ACTIONS['public.acctSend'] = 1; PUBLIC_ACTIONS['public.acctVerify'] = 1; PUBLIC_ACTIONS['public.acctOrders'] = 1; PUBLIC_ACTIONS['public.acctClaim'] = 1; PUBLIC_ACTIONS['public.acctLogout'] = 1;
 PUBLIC_ACTIONS['public.thanksCoupon'] = 1; PUBLIC_ACTIONS['public.event'] = 1; PUBLIC_ACTIONS['public.preferences'] = 1; PUBLIC_ACTIONS['public.optout'] = 1;
 DEFAULT_SETTINGS.site_url = ''; DEFAULT_SETTINGS.thanks_percent = '0'; DEFAULT_SETTINGS.thanks_days = '30';
 
@@ -33,10 +38,15 @@ var V3_ADMIN_ = {'analytics.report':'reports.read', 'prefs.list':'users.manage'}
 var V3_FRIENDLY_ = {SUPPLIER_CONFIRMATION:'Confirmed with our supplier', FULFILMENT_PENDING:'Being prepared', SHIPPED:'Shipped', DELIVERED:'Delivered', CANCELLATION_REQUESTED:'Cancellation requested', CANCELLED:'Cancelled'};
 var V3_PREF_HEADERS_ = ['email','consent_at','consent_text','dates_json','opted_out','opted_out_at'];
 
-function v3Handles_(a) { return a === 'public.thanksCoupon' || a === 'public.event' || a === 'public.preferences' || a === 'public.optout' || !!V3_ADMIN_[a]; }
+function v3Handles_(a) { return /^public\.acct(Send|Verify|Orders|Claim|Logout)$/.test(a) || a === 'public.thanksCoupon' || a === 'public.event' || a === 'public.preferences' || a === 'public.optout' || !!V3_ADMIN_[a]; }
 function v3Route_(action, b, s) {
   if (V3_ADMIN_[action]) need_(s, V3_ADMIN_[action]);
   switch (action) {
+    case 'public.acctSend': return v3AcctSend_(b);
+    case 'public.acctVerify': return v3AcctVerify_(b);
+    case 'public.acctOrders': return v3AcctOrders_(b);
+    case 'public.acctClaim': return v3AcctClaim_(b);
+    case 'public.acctLogout': return v3AcctLogout_(b);
     case 'public.thanksCoupon': return v3Thanks_(b);
     case 'public.event': return v3Event_(b);
     case 'public.preferences': return v3Prefs_(b);
@@ -140,6 +150,66 @@ function sendReminders_() {
 }
 
 
+
+/* ---------- CUSTOMER ACCOUNTS: passwordless, email code. Only emails that appear on a real (non-demo) order can sign in. ---------- */
+function v3SessHeaders_() { return ['token_hash', 'email', 'expires']; }
+function v3AcctSend_(b) {
+  var email = v3Email_(b.email); v3Limit_('as_' + email, 3, 3600); v3Limit_('as_all', 40, 21600); // protects the free Gmail sending quota
+  var known = readAll_('Orders').some(function (o) { return String(o.is_test) !== 'true' && String(o.email || '').trim().toLowerCase() === email; });
+  if (known) {
+    var code = ('00000' + (parseInt(Utilities.getUuid().replace(/-/g, '').slice(0, 8), 16) % 1000000)).slice(-6), sh = v3Sheet_('CustCodes', ['email', 'code_hash', 'expires', 'attempts']), v = sh.getDataRange().getValues(), row = -1;
+    for (var i = 1; i < v.length; i++) if (v[i][0] === email) { row = i + 1; break; }
+    var rec = [email, sha_(email + '|' + code), new Date(Date.now() + 10 * 60000).toISOString(), 0];
+    if (row > 0) sh.getRange(row, 1, 1, 4).setValues([rec]); else sh.appendRow(rec);
+    var store = getSetting_('store_name') || 'SHOPROCK';
+    MailApp.sendEmail(email, store + ' - your sign-in code', 'Your sign-in code is ' + code + '\n\nIt works for 10 minutes. If you did not ask for it, you can ignore this email; nobody can sign in without it.\n\n' + store);
+  }
+  return {sent: true}; // identical answer whether or not the email has orders
+}
+function v3AcctVerify_(b) {
+  var email = v3Email_(b.email), code = String(b.code || '').replace(/\D/g, ''), bad = 'That code is not valid or has expired. Please request a new one.'; v3Limit_('av_' + email, 10, 900);
+  var sh = v3Sheet_('CustCodes', ['email', 'code_hash', 'expires', 'attempts']), v = sh.getDataRange().getValues(), row = -1;
+  for (var i = 1; i < v.length; i++) if (v[i][0] === email) { row = i + 1; break; }
+  if (row < 0) fail_(bad);
+  var attempts = Number(v[row - 1][3]) || 0;
+  if (attempts >= 5 || new Date(v[row - 1][2]) < new Date()) { sh.deleteRow(row); fail_(bad); }
+  if (sha_(email + '|' + code) !== v[row - 1][1]) { sh.getRange(row, 4).setValue(attempts + 1); fail_(bad); }
+  sh.deleteRow(row);
+  var token = randomToken_();
+  v3Sheet_('CustSessions', v3SessHeaders_()).appendRow([sha_(token), email, new Date(Date.now() + 30 * 864e5).toISOString()]);
+  return {token: token, email: email};
+}
+function v3Session_(token) {
+  var h = sha_(String(token || '')), v = v3Sheet_('CustSessions', v3SessHeaders_()).getDataRange().getValues();
+  for (var i = 1; i < v.length; i++) if (v[i][0] === h && new Date(v[i][2]) > new Date()) return String(v[i][1]);
+  fail_('Please sign in again.');
+}
+function v3AcctOrders_(b) {
+  var email = v3Session_(b.token), claimed = {};
+  v3Sheet_('CustClaims', ['email', 'order_id']).getDataRange().getValues().forEach(function (r, i) { if (i && r[0] === email) claimed[r[1]] = 1; });
+  var orders = readAll_('Orders').filter(function (o) { return String(o.is_test) !== 'true' && (String(o.email || '').trim().toLowerCase() === email || claimed[o.order_id]); }), items = readAll_('OrderItems'), ev = readAll_('FulfilmentEvents');
+  orders.sort(function (a, c) { return String(c.created_at).localeCompare(String(a.created_at)); });
+  return orders.slice(0, 50).map(function (o) {
+    return {order_id: o.order_id, created_at: o.created_at, total: o.total, payment_status: o.payment_status, order_status: o.order_status, tracking_number: o.tracking_number || null, delivery_estimate: o.delivery_estimate || null, city: o.city, gift_message: o.gift_message || '',
+      items: items.filter(function (i) { return i.order_id === o.order_id; }).map(function (i) { return {name: i.name, qty: i.qty, unit_price: i.unit_price, product_id: i.product_id}; }),
+      updates: [{at: o.created_at, status: 'Order placed'}].concat(ev.filter(function (e) { return e.order_id === o.order_id && V3_FRIENDLY_[e.status]; }).map(function (e) { return {at: e.created_at, status: V3_FRIENDLY_[e.status]}; }))};
+  });
+}
+function v3AcctClaim_(b) {
+  var email = v3Session_(b.token); v3Limit_('cl_' + email, 10, 3600);
+  var oid = String(b.order_id || '').trim(), o = readAll_('Orders').filter(function (x) { return x.order_id === oid && String(x.phone).slice(-4) === String(b.phone_last4) && String(x.is_test) !== 'true'; })[0];
+  if (!o) fail_('Order not found');
+  var sh = v3Sheet_('CustClaims', ['email', 'order_id']), v = sh.getDataRange().getValues();
+  if (!v.some(function (r, i) { return i && r[0] === email && r[1] === oid; })) sh.appendRow([email, oid]);
+  return {claimed: oid};
+}
+function v3AcctLogout_(b) {
+  var h = sha_(String(b.token || '')), sh = v3Sheet_('CustSessions', v3SessHeaders_()), v = sh.getDataRange().getValues(), email = null;
+  for (var i = 1; i < v.length; i++) if (v[i][0] === h) email = v[i][1];
+  for (var j = v.length - 1; j >= 1; j--) if (v[j][0] === h || (b.all && email && v[j][1] === email)) sh.deleteRow(j + 1);
+  return {};
+}
+
 /* ---------- post-delivery thank-you code: owner switches it on with thanks_percent (0 = off). NOT tied to any review or rating. ---------- */
 function v3ThanksOn_() { var p = Math.floor(Number(getSetting_('thanks_percent')) || 0); return p > 0 ? Math.min(30, p) : 0; }
 function v3Thanks_(b) {
@@ -180,6 +250,31 @@ function v3BundleSaving_(lines, site) {
   });
   return saving;
 }
+
+/* ---------- GIFTING OPTIONS (secret gift, premium packaging, deliver-to-someone-else). Only options the owner switched ON in the dashboard can be ordered; prices come from site_json on the server. ---------- */
+function v3EnsureOrderCols_() {
+  var sh = sheet_('Orders'), n = sh.getLastColumn(), h = sh.getRange(1, 1, 1, n).getValues()[0];
+  if (h.indexOf('gift_json') < 0) sh.getRange(1, SCHEMA.Orders.length).setValue('gift_json');
+}
+function v3Gift_(raw, site) {
+  var g = site.gifting || {}, want = raw || {}, out = {items: [], json: {}, note: ''}, parts = [];
+  if (want.secret) {
+    var s = g.secret || {}; if (!s.on) fail_('Secret gift is not available right now.');
+    out.json.secret = true; parts.push('SECRET GIFT: do not reveal who ordered');
+    var sp = Math.max(0, Math.round(Number(s.price) || 0)); if (sp > 0) out.items.push({id: 'OPT-SECRET', name: String(s.label || 'Secret gift').slice(0, 60), price: sp, cost: 0});
+  }
+  if (want.packaging) {
+    var p = g.packaging || {}; if (!p.on) fail_('Premium packaging is not available right now.');
+    var pp = Math.max(0, Math.round(Number(p.price) || 0)), pn = String(p.name || 'Premium packaging').slice(0, 60);
+    out.json.packaging = {name: pn, price: pp}; parts.push('PACKAGING: ' + pn);
+    if (pp > 0) out.items.push({id: 'OPT-PACKAGING', name: pn, price: pp, cost: Math.max(0, Number(getSetting_('packaging_cost')) || 0)});
+  }
+  var rn = String(clean_(String(want.recipient_name || '').trim())).slice(0, 60), rp = String(want.recipient_phone || '').replace(/\D/g, '').slice(-10);
+  if (rp && !/^[6-9]\d{9}$/.test(rp)) fail_('Enter a valid mobile number for the person receiving the gift, or leave it empty.');
+  if (rn) { out.json.recipient = {name: rn, phone: rp}; parts.push('DELIVER TO: ' + rn + (rp ? ' (' + rp + ')' : '')); }
+  out.note = parts.join(' | '); return out;
+}
+
 function v3OrderOut_(oid, total, cmode, demo) {
   var out = {order_id: oid, total: total, mode: demo ? 'DEMO' : cmode, note: demo ? 'DEMO checkout: payment is NOT collected and this order can never be marked paid.' : (cmode === 'MANUAL' ? 'Order received. Please complete the UPI payment below so we can confirm it.' : 'Proceed to gateway payment.')};
   if (cmode === 'MANUAL') { out.upi_id = getSetting_('upi_id'); out.upi_payee_name = getSetting_('upi_payee_name') || getSetting_('store_name'); out.payment_instructions = getSetting_('payment_instructions'); out.whatsapp_number = getSetting_('whatsapp_number'); }
@@ -208,17 +303,19 @@ function createOrder_(b) {
     var u = v3Unit_(p, it, site);
     items.push({p: p, qty: qty, unit: u.price, label: u.label, bundle: String(it.bundle || '').slice(0, 40)}); subtotal += u.price * qty; // price from server data only
   });
+  var gift = v3Gift_(b.gift, site), optTotal = gift.items.reduce(function (a, x) { return a + x.price; }, 0);
   var bsave = v3BundleSaving_(items, site), disc = bsave, ccode = '';
   if (b.coupon_code) { var cc = couponCheck_(b.coupon_code, subtotal - bsave); disc += cc.discount; ccode = cc.code; }
   var shipping = Number(getSetting_('shipping_flat')) || 0, freeAbove = Number(getSetting_('free_shipping_above')) || 0; if (freeAbove > 0 && (subtotal - disc) >= freeAbove) shipping = 0;
-  var total = subtotal - disc + shipping, now = new Date().toISOString(), oid = newId_('ORD');
+  var total = subtotal - disc + shipping + optTotal, now = new Date().toISOString(), oid = newId_('ORD'); v3EnsureOrderCols_();
   var cmode = getSetting_('checkout_mode'), demo = (cmode !== 'LIVE' && cmode !== 'MANUAL');
-  appendRow_('Orders', {order_id: oid, created_at: now, customer_name: clean_(name), phone: phone, email: clean_(b.email || ''), address: clean_(b.address), city: clean_(b.city), state: clean_(b.state), pin: pin, gift_message: clean_(String(b.gift_message || '').slice(0, 300)), subtotal: subtotal, discount: disc, shipping: shipping, total: total, coupon_code: ccode, payment_status: 'UNPAID', fulfilment_status: 'NONE', order_status: 'PENDING_PAYMENT', refund_total: 0, idempotency_key: key, is_test: demo, updated_at: now});
+  appendRow_('Orders', {order_id: oid, created_at: now, customer_name: clean_(name), phone: phone, email: clean_(b.email || ''), address: clean_(b.address), city: clean_(b.city), state: clean_(b.state), pin: pin, gift_message: clean_(String(b.gift_message || '').slice(0, 300)), subtotal: subtotal, discount: disc, shipping: shipping, total: total, coupon_code: ccode, payment_status: 'UNPAID', fulfilment_status: 'NONE', order_status: 'PENDING_PAYMENT', refund_total: 0, idempotency_key: key, is_test: demo, updated_at: now, internal_notes: gift.note, gift_json: Object.keys(gift.json).length ? JSON.stringify(gift.json) : ''});
   items.forEach(function (x) {
     var r = readAll_('ProductResearch').filter(function (q) { return q.product_id === x.p.product_id; })[0];
     appendRow_('OrderItems', {item_id: newId_('ITM'), order_id: oid, product_id: x.p.product_id, name: x.p.name + (x.label ? ' (' + x.label + ')' : ''), qty: x.qty, unit_price: x.unit, unit_cost: Number(r.supplier_price) || 0, packaging_cost: Number(r.packaging_cost) || 0, shipping_cost: Number(r.shipping_cost) || 0, payment_fee: x.unit * (Number(r.payment_fee_pct) || 0) / 100});
   });
-  log_(null, 'order.create', oid, {total: total, test: demo, bundle_saving: bsave});
+  gift.items.forEach(function (x) { appendRow_('OrderItems', {item_id: newId_('ITM'), order_id: oid, product_id: x.id, name: x.name, qty: 1, unit_price: x.price, unit_cost: x.cost, packaging_cost: 0, shipping_cost: 0, payment_fee: 0}); });
+  log_(null, 'order.create', oid, {total: total, test: demo, bundle_saving: bsave, options: optTotal});
   if (ccode) { var cr = couponFind_(ccode); if (cr) updateRow_('Coupons', 'code', cr.code, {used: (Number(cr.used) || 0) + 1}); }
   try { notifyNewOrder_(oid, name, phone, b.email, items, total, cmode, demo); } catch (e) { logError_('notify', e); }
   return v3OrderOut_(oid, total, cmode, demo);

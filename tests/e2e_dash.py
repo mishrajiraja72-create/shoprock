@@ -13,6 +13,7 @@ class DM(Mock):
         if a=="settings.get": return dict(s.settings)
         if a=="settings.set": s.settings[b["key"]]=b["value"]; s.sets.append(b["key"]); return {}
         if a=="research.list": return [dict(product_id=p["product_id"],name=p["name"],selling_price=p["price"],status="PUBLISHED",category=p["category"]) for p in PRODUCTS]
+        if a=="orders.list": return [dict(order_id="ORD-GIFT0001",created_at="2026-10-20T10:00:00Z",customer_name="Asha",city="Delhi",total=598,payment_status="PAID",order_status="PAID",gift_message="Happy anniversary",is_test=False,gift_json=json.dumps({"secret":True,"packaging":{"name":"Premium gift box","price":99},"recipient":{"name":"Priya","phone":"9123456789"}})),dict(order_id="ORD-PLAIN002",created_at="2026-10-21T10:00:00Z",customer_name="Ravi",city="Pune",total=499,payment_status="UNPAID",order_status="PENDING_PAYMENT",is_test=False)]
         if a=="analytics.report": raise Exception("Unknown action analytics.report")
         if a=="prefs.list": raise Exception("Unknown action prefs.list")
         if a=="public.config":
@@ -48,12 +49,25 @@ with sync_playwright() as p:
     # thank-you setting persists
     pg.click("#nav a[data-v='settings']"); pg.wait_for_selector("[data-s='thanks_percent']"); pg.fill("[data-s='thanks_percent']","10"); pg.click("button:has-text('Save Thank-you code after delivery')"); pg.wait_for_timeout(600)
     t("12 thank-you percent saved via dashboard", m.settings.get("thanks_percent")=="10", m.settings)
+    # gifting options
+    pg.click("#nav a[data-v='gifting']"); pg.wait_for_selector("#g_save")
+    pg.check("#gp_on"); pg.fill("#gp_price","99"); pg.fill("#gp_cost","40"); pg.click("#g_save"); pg.wait_for_timeout(400)
+    t("12 packaging switched on without describing it is rejected", "gifting" not in json.loads(m.settings["site_json"]))
+    pg.fill("#gp_desc","Rigid box, ribbon, tissue"); pg.fill("#gp_price","-5"); pg.click("#g_save"); pg.wait_for_timeout(400); t("12 negative price rejected", "gifting" not in json.loads(m.settings["site_json"]))
+    pg.fill("#gp_price","99"); pg.check("#gs_on"); pg.click("#g_save"); pg.wait_for_timeout(400); t("12 secret gift on without saying what you do is rejected", "gifting" not in json.loads(m.settings["site_json"]))
+    pg.fill("#gs_note","No sender name on the parcel."); pg.click("#g_save"); pg.wait_for_timeout(700)
+    gj=json.loads(m.settings["site_json"]).get("gifting",{}); t("12 gifting options saved to backend (packaging 99, secret free, private cost 40)", gj.get("packaging",{}).get("price")==99 and gj["packaging"]["on"] and gj.get("secret",{}).get("on") and m.settings.get("packaging_cost")=="40", [gj,m.settings.get("packaging_cost")])
+    t("12 private packaging COST is not in the public site config", "40" not in json.dumps(gj))
+    pg2.evaluate("sessionStorage.clear()"); pg2.goto(B+"site/checkout.html"); pg2.evaluate("c=>localStorage.setItem('sr_cart',c)", json.dumps([{"product_id":"P1","qty":1}])); pg2.reload(); pg2.wait_for_selector("#gifting .special"); t("12 storefront checkout shows the saved options", "Premium gift box" in pg2.inner_text("#gifting") and "+₹99" in pg2.inner_text("#gifting"))
+    pg.click("#nav a[data-v='orders']"); pg.wait_for_selector("table"); ot=pg.inner_text("#view")
+    t("12 staff see SECRET, packaging, recipient and gift note on the order", all(x.lower() in ot.lower() for x in ["SECRET","Premium gift box","Priya","Happy anniversary"]), ot[:300])
+    t("12 plain order shows a dash in Gift / packing", "—" in ot)
     # analytics/reminders honest when backend lacks support
     pg.click("#nav a[data-v='analytics']"); pg.wait_for_timeout(500); t("analytics shows blocker, no fake numbers", "needs BACKEND-PATCH-v3" in pg.inner_text("#view") and "₹" not in pg.inner_text("#view"))
     pg.click("#nav a[data-v='reminders']"); pg.wait_for_timeout(500); t("reminders shows blocker, no fake rows", "Nothing is being collected" in pg.inner_text("#view"))
     # WhatsApp setting -> storefront
     pg.click("#nav a[data-v='settings']"); pg.wait_for_selector("[data-s='whatsapp_number']"); pg.fill("[data-s='whatsapp_number']","911112223334"); pg.click("button:has-text('Save WhatsApp and contact')"); pg.wait_for_timeout(700)
     t("12/14 WhatsApp number saved via dashboard", m.settings["whatsapp_number"]=="911112223334")
-    pg2.evaluate("sessionStorage.clear()"); pg2.reload(); pg2.wait_for_selector("#waq[href]"); t("14 storefront WhatsApp link uses dashboard number", "wa.me/911112223334" in pg2.get_attribute("#waq","href"), pg2.get_attribute("#waq","href"))
+    pg2.goto(B+"site/product.html?id=P1"); pg2.evaluate("sessionStorage.clear()"); pg2.reload(); pg2.wait_for_selector("#waq[href]"); t("14 storefront WhatsApp link uses dashboard number", "wa.me/911112223334" in pg2.get_attribute("#waq","href"), pg2.get_attribute("#waq","href"))
     t("no page errors", not errs and not e2, (errs,e2)); b.close()
 f=[n for n,ok in R if not ok]; print(f"\n{len(R)-len(f)} passed, {len(f)} failed"); sys.exit(1 if f else 0)

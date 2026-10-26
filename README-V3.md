@@ -45,3 +45,13 @@ is saved and only if the backend patch is live; consent is UNTICKED by default a
 
 ## Dashboard cache
 dashboard/index.html loads dashboard.js?v=<tag>. Change the tag on every release, or browsers keep the old dashboard.
+
+## Customer accounts, secret gift, premium packaging (this round)
+- **Account** (site/account.html): passwordless. Customer enters the email used on an order, gets a 6-digit code (valid 10 min, 5 tries, stored hashed),
+  and sees THEIR orders (matched by email, plus older orders they add with order ref + last 4 digits). Gift again / Send a reveal / Sign out everywhere.
+  Only emails that appear on a real order can sign in. Uses the free Gmail quota (about 100 emails/day; the patch caps code emails at 40 per 6 hours).
+- **Gifting options** (Dashboard -> Gifting options): owner switches on Premium packaging and/or Secret gift, sets exact wording + price.
+  Customers see them (unticked) in checkout under "Make it extra special"; the SERVER charges the price from your settings.
+  Orders get a 'gift_json' column + a readable note in internal_notes, and the Orders page shows a "Gift / packing" column for staff.
+  Your packaging COST is private (not in the public site config).
+- **Deliver to someone else**: recipient name (+ optional mobile) saved with the order.

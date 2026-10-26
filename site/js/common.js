@@ -63,7 +63,7 @@ function header(active) {
   return `<div class="announce" id="announce">Curated gifts for couples &middot; Secure ordering &middot; Track every order</div>
   <div class="container"><nav class="nav"><a class="logo" href="index.html">SHOP<b>ROCK</b></a>
   <button class="nav-toggle" onclick="document.getElementById('nl').classList.toggle('open')" aria-label="Menu">Menu</button>
-  <ul id="nl"><li><a href="shop.html">Shop</a></li><li><a href="gift-finder.html">Gift Finder</a></li><li><a href="index.html#occasions">Occasions</a></li><li><a href="index.html#story">Why us</a></li><li><a href="track.html">Track order</a></li><li><a href="policies.html#faq">FAQ</a></li><li><a href="wishlist.html">Saved (<span id="wishCount">0</span>)</a></li><li><a href="cart.html">Cart (<span id="cartCount">0</span>)</a></li></ul></nav></div>`;
+  <ul id="nl"><li><a href="shop.html">Shop</a></li><li><a href="gift-finder.html">Gift Finder</a></li><li><a href="index.html#occasions">Occasions</a></li><li><a href="index.html#story">Why us</a></li><li><a href="track.html">Track order</a></li><li><a href="policies.html#faq">FAQ</a></li><li><a href="account.html">Account</a></li><li><a href="wishlist.html">Saved (<span id="wishCount">0</span>)</a></li><li><a href="cart.html">Cart (<span id="cartCount">0</span>)</a></li></ul></nav></div>`;
 }
 function footer() {
   return `<footer><div class="container cols"><div><div class="logo">SHOP<b>ROCK</b></div><p style="margin-top:12px" id="ftag">Thoughtful gifts for couples.</p><p style="margin-top:10px" id="fsoc"></p></div>

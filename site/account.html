@@ -1,0 +1,38 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My account -- SHOPROCK</title><link rel="stylesheet" href="css/shoprock.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/premium.css"></head><body>
+<div id="hdr"></div>
+<section><div class="container" style="max-width:760px"><h2 style="margin-bottom:6px">My account</h2><p class="muted" style="margin-bottom:22px">See your orders in one place. No password: we email you a 6-digit code.</p>
+<div id="ac" aria-live="polite"><div class="loading">Loading</div></div></div></section>
+<div id="ftr"></div><script src="js/common.js"></script><script src="js/extras.js"></script>
+<script>
+const $=i=>document.getElementById(i);let CAT=[];
+const getA=()=>{try{const a=JSON.parse(localStorage.getItem("sr_acct")||"null");return a&&typeof a.token==="string"&&a.token.length>=32?a:null}catch{return null}},setA=a=>{try{a?localStorage.setItem("sr_acct",JSON.stringify(a)):localStorage.removeItem("sr_acct")}catch{}};
+function loginView(msg){$("ac").innerHTML=`${msg?`<p class="notice">${esc(msg)}</p>`:""}<form id="f1" class="card" novalidate><h3 style="margin-bottom:8px">Sign in</h3><div class="field"><label for="em">Email you used when ordering</label><input id="em" type="email" autocomplete="email" required></div><button class="btn" id="b1">Email me a code</button><p class="muted" style="margin-top:10px;font-size:.85rem">Only emails used on a previous order can sign in. Placing an order without an email? You can still track it with your order reference on the <a href="track.html">Track order</a> page.</p></form>`;
+ $("f1").onsubmit=async e=>{e.preventDefault();const em=$("em").value.trim().toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){toast("Enter a valid email.",1);return;}$("b1").disabled=true;
+  try{await api("public.acctSend",{email:em});codeView(em);}catch(err){toast(err.message,1);$("b1").disabled=false;}};}
+function codeView(em){$("ac").innerHTML=`<form id="f2" class="card" novalidate><h3 style="margin-bottom:8px">Enter your code</h3><p class="muted" style="margin-bottom:10px">If <b>${esc(em)}</b> has an order with us, we just emailed a 6-digit code. It works for 10 minutes. Check spam too.</p><div class="field"><label for="cd">6-digit code</label><input id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required></div><button class="btn" id="b2">Sign in</button> <a href="#" id="again">Use a different email</a></form>`;
+ $("cd").focus();$("again").onclick=e=>{e.preventDefault();loginView();};
+ $("f2").onsubmit=async e=>{e.preventDefault();const c=$("cd").value.replace(/\D/g,"");if(c.length!==6){toast("Enter the 6-digit code.",1);return;}$("b2").disabled=true;
+  try{const r=await api("public.acctVerify",{email:em,code:c});setA({token:r.token,email:r.email});ordersView();}catch(err){toast(err.message,1);$("b2").disabled=false;}};}
+async function ordersView(){const a=getA();if(!a){loginView();return;}$("ac").innerHTML='<div class="loading">Loading your orders</div>';let l;
+ try{l=await api("public.acctOrders",{token:a.token});}catch(err){setA(null);loginView(/sign in again/i.test(err.message)?"Your session ended. Please sign in again.":err.message);return;}
+ $("ac").innerHTML=`<div class="bar" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px"><span class="muted">Signed in as <b>${esc(a.email)}</b></span><span><button class="btn ghost sm" id="so">Sign out</button> <button class="btn ghost sm" id="sa">Sign out everywhere</button></span></div>
+ <h3 style="margin-bottom:10px">My orders</h3><div id="ol">${l.length?l.map(orderCard).join(""):'<div class="empty">No orders found for this email yet. If you ordered with a different email or without one, add that order below.</div>'}</div>
+ <form id="cl" class="card" style="margin-top:20px" novalidate><h4 style="margin-bottom:8px">Add an older order</h4><div class="row"><div class="field"><label for="co">Order reference</label><input id="co"></div><div class="field"><label for="c4">Last 4 digits of the mobile</label><input id="c4" maxlength="4" inputmode="numeric"></div></div><button class="btn ghost sm">Add to my account</button></form>`;
+ $("so").onclick=async()=>{try{await api("public.acctLogout",{token:a.token});}catch{}setA(null);loginView();};
+ $("sa").onclick=async()=>{try{await api("public.acctLogout",{token:a.token,all:true});}catch{}setA(null);loginView("Signed out on all devices.");};
+ $("cl").onsubmit=async e=>{e.preventDefault();try{await api("public.acctClaim",{token:a.token,order_id:$("co").value.trim(),phone_last4:$("c4").value.trim()});toast("Order added");ordersView();}catch(err){toast(err.message,1);}};}
+function orderCard(o){const real=(o.items||[]).filter(i=>!String(i.product_id||"").startsWith("OPT-")),paid=o.payment_status==="PAID";
+ return `<div class="card" style="margin-bottom:12px"><p class="eyebrow">${esc(o.order_id)} &middot; ${esc(fmtDate(o.created_at)||"")}</p><p>Payment: <span class="badge ${paid?"ok":"warn"}">${esc(o.payment_status)}</span> Status: <span class="badge">${esc(String(o.order_status||"").replace(/_/g," "))}</span></p>
+ <ul class="hl">${(o.items||[]).map(i=>`<li>${esc(i.name)} &times; ${esc(String(i.qty))}</li>`).join("")}</ul><p>Total: <b>${inr(o.total)}</b></p>
+ ${o.tracking_number?`<p>Tracking: ${esc(o.tracking_number)}</p>`:""}${o.delivery_estimate?`<p>Estimated delivery: ${esc(o.delivery_estimate)}</p>`:""}
+ ${(o.updates||[]).length>1?`<details><summary>Updates</summary><ul class="hl">${o.updates.map(u=>`<li>${esc(fmtDate(u.at)||"")} ${esc(u.status)}</li>`).join("")}</ul></details>`:""}
+ ${o.gift_message?`<details><summary>Your gift note</summary><p class="muted" style="white-space:pre-wrap">${esc(o.gift_message)}</p></details>`:""}
+ <p style="margin-top:10px"><a class="btn ghost sm" href="track.html">Track</a> ${real.length?`<button class="btn ghost sm" data-again="${esc(o.order_id)}">Gift again</button>`:""} <button class="btn ghost sm" data-rev="${esc(o.order_id)}">Send a surprise reveal</button></p></div>`;}
+document.addEventListener("click",async e=>{const g=e.target.closest("[data-again]"),r=e.target.closest("[data-rev]");
+ if(g){const a=getA();let l=[];try{l=await api("public.acctOrders",{token:a.token});}catch{return;}const o=l.find(x=>x.order_id===g.dataset.again);if(!o)return;let add=0,skip=0;
+  (o.items||[]).filter(i=>!String(i.product_id||"").startsWith("OPT-")).forEach(i=>{const p=CAT.find(x=>x.product_id===i.product_id);if(p&&p.available!==false){if(!cartQty(p.product_id)){Cart.add(p.product_id,Math.min(10,Number(i.qty)||1));add++;}}else skip++;});
+  toast(add?`Added ${add} item${add>1?"s":""} to your cart${skip?` (${skip} no longer available)`:""}`:(skip?"Those items are no longer available":"Already in your cart"),!add&&skip);if(add)setTimeout(()=>location.href="cart.html",900);}
+ if(r){const a=getA();let l=[];try{l=await api("public.acctOrders",{token:a.token});}catch{}const o=l.find(x=>x.order_id===r.dataset.rev);try{sessionStorage.setItem("sr_note",(o&&o.gift_message)||"")}catch{}location.href="reveal.html";}});
+(async()=>{try{CAT=await loadProducts();}catch{}getA()?ordersView():loginView();})();
+</script></body></html>

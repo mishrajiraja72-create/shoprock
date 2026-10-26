@@ -10,3 +10,4 @@ echo "== browser: dashboard -> store";  (cd tests && python3 e2e_dash.py | tail 
 echo "== browser: gift finder + reveal"; (cd tests && python3 e2e_creative.py | tail -1)
 echo "== browser: delivery loop + moments + surprise week"; (cd tests && python3 e2e_loop.py | tail -1)
 echo "== browser: special-date prompt"; (cd tests && python3 e2e_moment.py | tail -1)
+echo "== browser: account + gifting options"; (cd tests && python3 e2e_acct.py | tail -1)
