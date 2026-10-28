@@ -2,65 +2,76 @@
 <title>SHOPROCK -- Thoughtful gifts for couples</title>
 <meta name="description" content="Curated gifts for couples, chosen to make ordinary moments feel special.">
 <meta name="theme-color" content="#080807">
-<link rel="stylesheet" href="css/shoprock.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/premium.css"></head><body>
+<link rel="stylesheet" href="css/shoprock.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/premium.css"><link rel="stylesheet" href="css/v4.css"></head><body>
 <div id="hdr"></div>
-<header class="hero3d"><div id="scene" aria-hidden="true"></div>
-  <div class="container hero-copy">
-    <p class="eyebrow reveal">Gifts for couples</p>
-    <h1 class="reveal" id="ht">Not just a gift. A piece of your story.</h1>
-    <p class="lead reveal" id="hp">Thoughtful finds for your favourite person, checked with our suppliers and made to turn an ordinary moment into one you remember.</p>
-    <div class="cta reveal"><a class="btn" href="shop.html">Shop gifts</a><a class="btn ghost" href="#occasions">Find by occasion</a></div>
-  </div>
-  <div class="scroll-hint">SCROLL</div>
-</header>
 
-<div class="trust"><div class="container">
-  <div><i>&#10003;</i>Every product checked before it is listed</div>
-  <div><i>&#9993;</i>Add a personal gift message</div>
-  <div><i>&#9737;</i>Track your order any time</div>
-  <div><i>&#9825;</i>Real people on WhatsApp</div>
-</div></div>
+<section class="home-top" style="padding-bottom:0"><div class="container">
+  <a class="gfcta" href="gift-finder.html" id="gfcta"><span class="gi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11h16v9H4zM3 7.5h18V11H3zM12 7.5V20M12 7.5c-1.5-3.5-5-3.5-5-1.2 0 1.4 2 1.2 5 1.2zm0 0c1.5-3.5 5-3.5 5-1.2 0 1.4-2 1.2-5 1.2z"/></svg></span><span><b>Not sure what to buy?</b><span class="s">Answer 4 quick questions with our Gift Finder</span></span><span class="go">Start</span></a>
+  <nav class="cat-row" id="cats" aria-label="Shop by category" hidden></nav>
+</div></section>
 
-<section id="occasions"><div class="container"><p class="eyebrow reveal">Curated for</p><h2 class="reveal" style="margin:8px 0 32px">Find the right kind of gift</h2>
-  <div class="cats reveal" id="occ"><a href="shop.html?q=anniversary">Anniversary</a><a href="shop.html?q=birthday">Birthday</a><a href="shop.html?q=long distance">Long distance</a><a href="shop.html?q=just because">Just because</a></div></div></section>
+<section id="featuredsec" style="padding-top:20px"><div class="container">
+  <div class="sec-h"><h2>Find Their Kind of Gift</h2><a href="shop.html">View all</a></div>
+  <p class="sub-line">Cute surprises, romantic gifts and little things that mean a lot.</p>
+  <div id="featured" class="pgrid"><div class="loading" style="grid-column:1/-1">Loading</div></div>
+  <p style="margin-top:20px;text-align:center"><a class="btn ghost" href="shop.html" id="viewall">View all gifts</a></p>
+</div></section>
 
-<section class="rule"><div class="container"><p class="eyebrow reveal">Featured</p><h2 class="reveal" style="margin:8px 0 32px">From the collection</h2>
-  <div id="featured" class="grid"><div class="loading">Loading</div></div>
-  <p class="reveal" style="margin-top:28px"><a class="btn ghost" href="shop.html">View all gifts</a></p></div></section>
+<div id="collections"></div>
 
-<section class="rule" id="story"><div class="container"><p class="eyebrow reveal">Why SHOPROCK</p><h2 class="reveal" style="margin:8px 0 12px" id="sth">We choose fewer things, and we check them.</h2><p class="muted reveal" id="stx" style="max-width:640px;margin-bottom:28px"></p>
-  <div class="feat">
-    <div class="card tilt reveal"><div class="num">01</div><h3>Checked, not guessed</h3><p class="muted">Each product is reviewed for quality, supplier reliability and delivery before it appears here.</p></div>
-    <div class="card tilt reveal"><div class="num">02</div><h3>Made personal</h3><p class="muted">Add a gift message at checkout so the surprise arrives with your words.</p></div>
-    <div class="card tilt reveal"><div class="num">03</div><h3>Clear and honest</h3><p class="muted">Delivery estimates, prices and policies are shown up front. No hidden surprises.</p></div>
-  </div></div></section>
+<section id="occasions" style="padding-top:8px" hidden><div class="container"><div class="sec-h"><h2>Shop by occasion</h2></div><div class="chip-row" id="occ"></div></div></section>
 
-<section class="rule"><div class="container"><p class="eyebrow reveal">How it works</p><h2 class="reveal" style="margin:8px 0 32px">Four simple steps</h2>
-  <ol class="steps reveal"><li><b>Choose</b><br><span class="muted">Pick a gift from the collection.</span></li><li><b>Pay</b><br><span class="muted">Pay securely. We never ask for card or UPI PINs by message.</span></li><li><b>We confirm</b><br><span class="muted">We confirm availability and payment before dispatch.</span></li><li><b>Track</b><br><span class="muted">Tracking details are shared once your gift ships.</span></li></ol></div></section>
+<div class="trust2 trust"><div class="container" id="trustrow"></div></div>
 
-<section class="rule"><div class="container"><div class="wa-cta reveal"><p class="eyebrow">Need help choosing?</p><h2 style="margin:8px 0 12px">Talk to a real person</h2><p class="muted" style="max-width:34rem;margin:0 auto 24px">Tell us the occasion and budget on WhatsApp and we will suggest the right gift.</p>
-  <a class="btn wa" data-wa="Hi! I need help choosing a gift." href="#" style="display:none" target="_blank" rel="noopener">Chat on WhatsApp</a><a class="btn ghost" href="shop.html" id="wafallback">Browse the collection</a></div></div></section>
+<section id="story" class="rule" hidden><div class="container"><h2 id="sth" style="margin-bottom:8px"></h2><p class="muted" id="stx" style="max-width:640px"></p></div></section>
 
-<section class="rule" id="faq"><div class="container"><p class="eyebrow">Questions</p><h2 style="margin:8px 0 24px">Good to know</h2><div id="faqlist">
-  <details><summary>How long does delivery take?</summary><p>The estimate on each product page is based on confirmed supplier information.</p></details>
-  <details><summary>Can I return an item?</summary><p>See our <a href="policies.html#returns">returns policy</a>.</p></details>
+<section class="rule" id="faq"><div class="container"><div class="sec-h"><h2>Good to know</h2><a href="policies.html#faq">All FAQs</a></div><div id="faqlist">
+  <details><summary>How long does delivery take?</summary><p>The estimate on each product page is based on confirmed supplier information. See the <a href="policies.html#shipping">shipping policy</a>.</p></details>
+  <details><summary>Can I return an item?</summary><p>See our <a href="policies.html#returns">returns &amp; refunds policy</a>.</p></details>
   <details><summary>How do I pay?</summary><p>All orders are prepaid. We never ask for card details, UPI PINs or OTPs by message.</p></details></div></div></section>
 
-<section class="rule"><div class="container" style="max-width:560px"><p class="eyebrow">Stay in touch</p><h2 style="margin:8px 0 16px">Be first to know</h2>
-  <form id="interest"><div class="field"><label for="em">Email</label><input id="em" type="email" required></div><button class="btn">Notify me</button></form></div></section>
+<section class="rule"><div class="container" style="max-width:560px"><div class="sec-h"><h2>Be first to know</h2></div>
+  <form id="interest"><div class="field"><label for="em">Email</label><input id="em" type="email" required autocomplete="email"></div><button class="btn">Notify me</button></form></div></section>
 <div id="ftr"></div>
-<script src="js/common.js"></script><script src="js/scene3d.js"></script>
+<script src="js/common.js"></script><script src="js/extras.js"></script>
 <script>
-(async()=>{const el=document.getElementById("featured");
- try{const p=await loadProducts();
-  p.sort((a,b)=>(b.featured?1:0)-(a.featured?1:0));el.innerHTML=p.length?p.slice(0,4).map(productCard).join(""):'<div class="empty" style="grid-column:1/-1">Our first collection is being prepared. Check back soon.</div>';
- }catch(e){el.innerHTML='<div class="empty" style="grid-column:1/-1">Collection coming soon.</div>';}
- initReveal();})();
-loadConfig().then(()=>{const q=id=>document.getElementById(id);
- if(SITE.hero_image&&/^https:\/\//.test(SITE.hero_image)){document.documentElement.classList.add("hero-img");q("scene").innerHTML=`<img src="${esc(SITE.hero_image)}" alt="">`;}
- if(SITE.hero_title)q("ht").textContent=SITE.hero_title;if(SITE.hero_text)q("hp").textContent=SITE.hero_text;if(SITE.story_title)q("sth").textContent=SITE.story_title;if(SITE.story_text)q("stx").textContent=SITE.story_text;
- const oc=(SITE.occasions||"").split(",").map(x=>x.trim()).filter(Boolean);if(oc.length)q("occ").innerHTML=oc.map(o=>`<a href="shop.html?q=${encodeURIComponent(o)}">${esc(o)}</a>`).join("");
- if((SITE.faq||[]).length)q("faqlist").innerHTML=SITE.faq.map(f=>`<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join("");
- const w=document.querySelector("[data-wa]");if(w&&w.style.display!=="none")document.getElementById("wafallback").style.display="none";});
+(async()=>{
+ const $=id=>document.getElementById(id),grid=$("featured");
+ const isF=p=>p.featured===true||String(p.featured)==="true"||p.featured===1;
+ const row=(title,list,href,sub)=>`<section style="padding:20px 0"><div class="container"><div class="sec-h"><h2>${esc(title)}</h2>${href?`<a href="${esc(href)}">See all</a>`:""}</div>${sub?`<p class="sub-line">${esc(sub)}</p>`:""}<div class="hrow">${list.slice(0,8).map(productCard).join("")}</div></div></section>`;
+ let all=[];
+ try{
+  const [p]=await Promise.all([loadProducts(),loadConfig()]);
+  all=p.filter(x=>x.available!==false);
+  if(!p.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1">Our first collection is being prepared. Check back soon.</div>';$("viewall").style.display="none";}
+  else if(!all.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1">Everything is sold out right now. Please check back soon.</div>';$("viewall").style.display="none";}
+  else{
+   const sorted=all.slice().sort((a,b)=>(isF(b)?1:0)-(isF(a)?1:0));
+   grid.innerHTML=sorted.slice(0,12).map(productCard).join("");
+   if(sorted.length<=12)$("viewall").style.display="none";
+   // category shortcuts: real categories, real product photos
+   const cats=catsOf(all);if(cats.length){$("cats").hidden=false;$("cats").innerHTML=catTiles(cats);}
+   // collections: only when they hold real products and are not just the whole catalogue
+   let h="";
+   [[499,"Gifts under ₹499"],[999,"Gifts under ₹999"]].forEach(([m,t])=>{const l=all.filter(x=>x.price<=m);if(l.length>=2&&l.length<all.length)h+=row(t,l,"shop.html?max="+m);});
+   const S=SITE.site||{},sets=(S.bundles||[]).filter(b=>b&&b.on!==false&&(b.items||[]).length>1).map(b=>{const it=b.items.map(id=>all.find(x=>x.product_id===id));if(it.some(x=>!x))return null;const reg=it.reduce((a,x)=>a+x.price,0),pr=!!SITE.v3_pricing&&+b.price>0&&+b.price<reg;return{b,it,reg,price:pr?+b.price:reg,save:pr?reg-(+b.price):0};}).filter(Boolean);
+   if(sets.length)h+=`<section style="padding:20px 0"><div class="container"><div class="sec-h"><h2>Gift sets</h2></div><div class="hrow">${sets.slice(0,6).map(s=>`<a class="setcard" href="product.html?id=${encodeURIComponent(s.it[0].product_id)}"><span class="th">${s.it.slice(0,3).map(x=>`<img loading="lazy" src="${esc(x.image_url)}" alt="">`).join("")}</span><b>${esc(s.b.name)}</b><span class="pc-price">${inr(s.price)}${s.save?` <small>save ${inr(s.save)}</small>`:` <small>for ${s.it.length} gifts</small>`}</span></a>`).join("")}</div></div></section>`;
+   $("collections").innerHTML=h;
+   // occasions: only those that lead to real products
+   const oc=((SITE.occasions||"Anniversary, Birthday, Long distance, Just because")+"").split(",").map(x=>x.trim()).filter(Boolean).filter(o=>searchProducts(all,o).length);
+   if(oc.length){$("occasions").hidden=false;$("occ").innerHTML=oc.map(o=>`<a class="chip" href="shop.html?q=${encodeURIComponent(o)}">${esc(o)}</a>`).join("");}
+  }
+ }catch(e){grid.innerHTML='<div class="errorbox" style="grid-column:1/-1">The collection could not be loaded. <button class="linkbtn" type="button" onclick="location.reload()">Try again</button></div>';}
+ // trust row: links to the real policy pages; payment wording follows the real checkout mode
+ const cfg=SITE||{},md=cfg.checkout_mode,wa=waUrl("Hi! I need help with my order or choosing a gift.");
+ $("trustrow").innerHTML=[
+  ["&#9992;","Delivery","Timelines &amp; charges","policies.html#shipping"],
+  [md==="LIVE"?"&#128274;":"&#9775;",md==="MANUAL"?"Pay by UPI":md==="LIVE"?"Secure payment":"Payment","How ordering works","policies.html#faq"],
+  ["&#8634;","Returns &amp; refunds","Our policy","policies.html#returns"],
+  ["&#9825;","Support",wa?"Chat on WhatsApp":"Contact us",wa||"policies.html#contact"]
+ ].map(t=>`<a href="${esc(t[3])}"${/^https:/.test(t[3])?' target="_blank" rel="noopener"':""}><i>${t[0]}</i><span>${t[1]}<small>${t[2]}</small></span></a>`).join("");
+ if(cfg.story_title||cfg.story_text||cfg.hero_title){$("story").hidden=false;$("sth").textContent=cfg.story_title||cfg.hero_title||"";$("stx").textContent=cfg.story_text||cfg.hero_text||"";}
+ if((cfg.faq||[]).length)$("faqlist").innerHTML=cfg.faq.map(f=>`<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join("");
+})();
 document.getElementById("interest").onsubmit=async e=>{e.preventDefault();try{await api("public.interest",{email:document.getElementById("em").value});toast("Thank you -- we'll be in touch.");e.target.reset();}catch(x){toast("Could not save right now.",1)}};
 </script></body></html>

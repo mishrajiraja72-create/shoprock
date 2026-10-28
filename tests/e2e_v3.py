@@ -10,7 +10,7 @@ with sync_playwright() as p:
     m=Mock(); ctx,pg,errs=new_page(b,m)
     pg.goto(B+"product.html?id=P1"); pg.wait_for_selector("#heart"); pg.click("#heart"); pg.wait_for_timeout(200)
     t("13 wishlist heart saves (guest, no account)", json.loads(pg.evaluate("localStorage.getItem('sr_wish')"))==["P1"] and pg.get_attribute("#heart","aria-pressed")=="true")
-    t("13 header Saved count = 1", pg.inner_text("#wishCount")=="1")
+    t("13 header Saved count = 1", pg.evaluate("document.querySelector('.js-wish').textContent")=="1")
     pg.goto(B+"wishlist.html"); pg.wait_for_selector("#wl .cl")
     t("13 wishlist page lists the product", "Couple Name Lamp" in pg.inner_text("#wl"))
     pg.click("[data-c='P1']"); pg.wait_for_timeout(200); t("13 wishlist add-to-cart works once", cart(pg)==[{"product_id":"P1","qty":1}], cart(pg))

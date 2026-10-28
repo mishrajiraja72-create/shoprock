@@ -1,26 +1,89 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>My account -- SHOPROCK</title><link rel="stylesheet" href="css/shoprock.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/premium.css"></head><body>
+<title>My account -- SHOPROCK</title><link rel="stylesheet" href="css/shoprock.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/premium.css"><link rel="stylesheet" href="css/v4.css"></head><body>
 <div id="hdr"></div>
-<section><div class="container" style="max-width:760px"><h2 style="margin-bottom:6px">My account</h2><p class="muted" style="margin-bottom:22px">See your orders in one place. No password: we email you a 6-digit code.</p>
-<div id="ac" aria-live="polite"><div class="loading">Loading</div></div></div></section>
+<section style="padding-top:24px"><div class="container" style="max-width:560px"><h2 style="margin-bottom:6px" id="ah">My account</h2><p class="muted" style="margin-bottom:20px" id="asub">Sign in to see your orders in one place. You can browse and order without an account.</p>
+<div id="ac" aria-live="polite"><div class="loading">Loading</div></div><div id="setup"></div></div></section>
 <div id="ftr"></div><script src="js/common.js"></script><script src="js/extras.js"></script>
 <script>
 const $=i=>document.getElementById(i);let CAT=[];
 const getA=()=>{try{const a=JSON.parse(localStorage.getItem("sr_acct")||"null");return a&&typeof a.token==="string"&&a.token.length>=32?a:null}catch{return null}},setA=a=>{try{a?localStorage.setItem("sr_acct",JSON.stringify(a)):localStorage.removeItem("sr_acct")}catch{}};
-function loginView(msg){$("ac").innerHTML=`${msg?`<p class="notice">${esc(msg)}</p>`:""}<form id="f1" class="card" novalidate><h3 style="margin-bottom:8px">Sign in</h3><div class="field"><label for="em">Email you used when ordering</label><input id="em" type="email" autocomplete="email" required></div><button class="btn" id="b1">Email me a code</button><p class="muted" style="margin-top:10px;font-size:.85rem">Only emails used on a previous order can sign in. Placing an order without an email? You can still track it with your order reference on the <a href="track.html">Track order</a> page.</p></form>`;
- $("f1").onsubmit=async e=>{e.preventDefault();const em=$("em").value.trim().toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){toast("Enter a valid email.",1);return;}$("b1").disabled=true;
+const okEmail=e=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)&&e.length<=120;
+const fieldErr=(id,msg)=>{const f=$(id).closest(".field");f.classList.add("err");f.querySelector(".errmsg")?.remove();f.insertAdjacentHTML("beforeend",`<div class="errmsg" role="alert">${esc(msg)}</div>`);$(id).focus();};
+const clearErr=root=>root.querySelectorAll(".field.err").forEach(f=>{f.classList.remove("err");f.querySelector(".errmsg")?.remove();});
+const pwField=(id,label,auto)=>`<div class="field"><label for="${id}">${label}</label><div style="display:flex;gap:8px"><input id="${id}" type="password" autocomplete="${auto}" minlength="8" maxlength="72"><button type="button" class="btn ghost sm" data-show="${id}" aria-label="Show password" aria-pressed="false">Show</button></div></div>`;
+document.addEventListener("click",e=>{const b=e.target.closest("[data-show]");if(b){const i=$(b.dataset.show),s=i.type==="password";i.type=s?"text":"password";b.textContent=s?"Hide":"Show";b.setAttribute("aria-pressed",s);}});
+let TAB="in";
+
+/* ---------- signed out ---------- */
+function loginView(msg){
+ $("ah").textContent="My account";$("asub").textContent="Sign in to see your orders in one place. You can browse and order without an account.";
+ if(!SITE.v4){legacyLogin(msg);return;}   // backend patch v4 not installed: only the email-code sign-in exists
+ const g=!!(SITE.google_client_id);
+ $("ac").innerHTML=`${msg?`<p class="notice" role="status" style="margin-bottom:14px">${esc(msg)}</p>`:""}
+ ${g?`<div id="gwrap"><div class="gbtn-wrap" id="gbtn" aria-label="Continue with Google"></div><p class="muted" id="gmsg" role="status" style="text-align:center;font-size:.82rem;margin-top:6px"></p></div><div class="or">or use email</div>`:""}
+ <div class="tabs" role="tablist"><button type="button" role="tab" id="t_in" aria-selected="${TAB==="in"}">Sign in</button><button type="button" role="tab" id="t_up" aria-selected="${TAB==="up"}">Create account</button></div>
+ <form id="fp" class="card" novalidate>${TAB==="in"?`<div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" inputmode="email"></div>${pwField("pw","Password","current-password")}<button class="btn" id="bp" style="width:100%">Sign in</button><p style="margin-top:10px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><button type="button" class="linkbtn" id="forgot">Forgot password?</button><button type="button" class="linkbtn" id="codein">Email me a sign-in code</button></p>`
+ :`<div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" inputmode="email"></div>${pwField("pw","Choose a password (min 8 characters)","new-password")}<button class="btn" id="bp" style="width:100%">Create account</button><p class="muted" style="margin-top:10px;font-size:.85rem">We email a 6-digit code to confirm it is really your address. No account is created until you enter it.</p>`}</form>`;
+ $("t_in").onclick=()=>{TAB="in";loginView();};$("t_up").onclick=()=>{TAB="up";loginView();};
+ $("fp").onsubmit=async e=>{e.preventDefault();clearErr($("fp"));const em=$("em").value.trim().toLowerCase(),pw=$("pw").value;
+  if(!okEmail(em)){fieldErr("em","Enter a valid email address.");return;}
+  if(TAB==="in"){if(!pw){fieldErr("pw","Enter your password.");return;}
+   $("bp").disabled=true;try{const r=await api("public.acctLogin",{email:em,password:pw});setA({token:r.token,email:r.email,name:r.name||""});ordersView();}catch(err){toast(err.message,1);fieldErr("pw",err.message);$("bp").disabled=false;}}
+  else{if(pw.length<8){fieldErr("pw","Password must be at least 8 characters.");return;}
+   $("bp").disabled=true;try{await api("public.acctRegisterStart",{email:em,password:pw});regCode(em);}catch(err){toast(err.message,1);$("bp").disabled=false;}}};
+ if($("forgot"))$("forgot").onclick=()=>emailCode($("em").value.trim().toLowerCase(),true);
+ if($("codein"))$("codein").onclick=()=>emailCode($("em").value.trim().toLowerCase(),false);
+ if(g)initGoogle();
+}
+function legacyLogin(msg){$("ac").innerHTML=`${msg?`<p class="notice">${esc(msg)}</p>`:""}<form id="f1" class="card" novalidate><h3 style="margin-bottom:8px">Sign in</h3><div class="field"><label for="em">Email you used when ordering</label><input id="em" type="email" autocomplete="email" required></div><button class="btn" id="b1">Email me a code</button><p class="muted" style="margin-top:10px;font-size:.85rem">Only emails used on a previous order can sign in. Placing an order without an email? You can still track it with your order reference on the <a href="track.html">Track order</a> page.</p></form>`;
+ $("f1").onsubmit=async e=>{e.preventDefault();const em=$("em").value.trim().toLowerCase();if(!okEmail(em)){toast("Enter a valid email.",1);return;}$("b1").disabled=true;
   try{await api("public.acctSend",{email:em});codeView(em);}catch(err){toast(err.message,1);$("b1").disabled=false;}};}
-function codeView(em){$("ac").innerHTML=`<form id="f2" class="card" novalidate><h3 style="margin-bottom:8px">Enter your code</h3><p class="muted" style="margin-bottom:10px">If <b>${esc(em)}</b> has an order with us, we just emailed a 6-digit code. It works for 10 minutes. Check spam too.</p><div class="field"><label for="cd">6-digit code</label><input id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required></div><button class="btn" id="b2">Sign in</button> <a href="#" id="again">Use a different email</a></form>`;
+function emailCode(em,reset){
+ if(!okEmail(em)){toast("Type your email address first.",1);if($("em"))fieldErr("em","Enter a valid email address.");return;}
+ api("public.acctSend",{email:em}).then(()=>codeView(em,reset)).catch(err=>toast(err.message,1));}
+function codeView(em,reset){$("ac").innerHTML=`<form id="f2" class="card" novalidate><h3 style="margin-bottom:8px">Enter your code</h3><p class="muted" style="margin-bottom:10px">If <b>${esc(em)}</b> has an account or an order with us, we just emailed a 6-digit code. It works for 10 minutes. Check spam too.</p><div class="field"><label for="cd">6-digit code</label><input id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required></div><button class="btn" id="b2">Sign in</button> <a href="#" id="again">Use a different email</a></form>`;
  $("cd").focus();$("again").onclick=e=>{e.preventDefault();loginView();};
  $("f2").onsubmit=async e=>{e.preventDefault();const c=$("cd").value.replace(/\D/g,"");if(c.length!==6){toast("Enter the 6-digit code.",1);return;}$("b2").disabled=true;
-  try{const r=await api("public.acctVerify",{email:em,code:c});setA({token:r.token,email:r.email});ordersView();}catch(err){toast(err.message,1);$("b2").disabled=false;}};}
-async function ordersView(){const a=getA();if(!a){loginView();return;}$("ac").innerHTML='<div class="loading">Loading your orders</div>';let l;
- try{l=await api("public.acctOrders",{token:a.token});}catch(err){setA(null);loginView(/sign in again/i.test(err.message)?"Your session ended. Please sign in again.":err.message);return;}
- $("ac").innerHTML=`<div class="bar" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px"><span class="muted">Signed in as <b>${esc(a.email)}</b></span><span><button class="btn ghost sm" id="so">Sign out</button> <button class="btn ghost sm" id="sa">Sign out everywhere</button></span></div>
+  try{const r=await api("public.acctVerify",{email:em,code:c});setA({token:r.token,email:r.email});if(reset&&SITE.v4){passwordView(true);}else ordersView();}catch(err){toast(err.message,1);$("b2").disabled=false;}};}
+function regCode(em){$("ac").innerHTML=`<form id="f3" class="card" novalidate><h3 style="margin-bottom:8px">Confirm your email</h3><p class="muted" style="margin-bottom:10px">We sent a 6-digit code to <b>${esc(em)}</b>. If that address already has an account, no code is sent: <a href="#" id="goin">sign in instead</a>. Check spam too.</p><div class="field"><label for="cd">6-digit code</label><input id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></div><button class="btn" id="b3">Create my account</button> <a href="#" id="again">Back</a></form>`;
+ $("cd").focus();$("again").onclick=e=>{e.preventDefault();loginView();};$("goin").onclick=e=>{e.preventDefault();TAB="in";loginView();};
+ $("f3").onsubmit=async e=>{e.preventDefault();const c=$("cd").value.replace(/\D/g,"");if(c.length!==6){toast("Enter the 6-digit code.",1);return;}$("b3").disabled=true;
+  try{const r=await api("public.acctRegisterVerify",{email:em,code:c});setA({token:r.token,email:r.email,name:""});toast("Account created. Welcome!");ordersView();}catch(err){toast(err.message,1);$("b3").disabled=false;}};}
+function passwordView(reset){const a=getA();if(!a){loginView();return;}
+ $("ac").innerHTML=`<form id="f4" class="card" novalidate><h3 style="margin-bottom:8px">${reset?"Set a new password":"Set a password"}</h3><p class="muted" style="margin-bottom:10px">${reset?"You are signed in. Choose a new password for next time.":"Add a password so you can also sign in with email and password."}</p>${pwField("np","New password (min 8 characters)","new-password")}<button class="btn" id="b4">Save password</button> <button type="button" class="linkbtn" id="skip">${reset?"Skip for now":"Cancel"}</button></form>`;
+ $("skip").onclick=()=>ordersView();
+ $("f4").onsubmit=async e=>{e.preventDefault();clearErr($("f4"));const p=$("np").value;if(p.length<8){fieldErr("np","Password must be at least 8 characters.");return;}$("b4").disabled=true;
+  try{await api("public.acctSetPassword",{token:a.token,password:p});toast("Password saved.");ordersView();}catch(err){toast(err.message,1);$("b4").disabled=false;}};}
+
+/* ---------- Google (Google Identity Services). The Client ID is public; verification happens on the server. ---------- */
+let _gis=null;
+function loadGis(){return _gis||(_gis=new Promise((ok,no)=>{if(window.google&&google.accounts&&google.accounts.id)return ok();const s=document.createElement("script");s.src="https://accounts.google.com/gsi/client";s.async=true;s.defer=true;s.onload=()=>ok();s.onerror=()=>{_gis=null;no(new Error("load"));};document.head.appendChild(s);}));}
+async function initGoogle(){const msg=$("gmsg"),box=$("gbtn");if(!box)return;
+ try{await loadGis();}catch{box.innerHTML="";msg.innerHTML='Google sign-in could not load (network or an ad-blocker?). Use email instead.';return;}
+ try{google.accounts.id.initialize({client_id:SITE.google_client_id,ux_mode:"popup",auto_select:false,cancel_on_tap_outside:true,callback:async r=>{
+   if(!r||!r.credential){msg.textContent="Google sign-in was cancelled.";return;}
+   msg.textContent="Signing you in…";
+   try{const s=await api("public.acctGoogle",{credential:r.credential});setA({token:s.token,email:s.email,name:s.name||""});ordersView();}
+   catch(err){msg.textContent="";toast(err.message,1);}}});
+  google.accounts.id.renderButton(box,{type:"standard",theme:"filled_black",size:"large",text:"continue_with",shape:"pill",logo_alignment:"left",width:Math.min(320,Math.max(220,(box.clientWidth||300)))});}
+ catch(e){msg.textContent="Google sign-in is not available right now. Use email instead.";}}
+
+/* ---------- signed in ---------- */
+async function ordersView(){const a=getA();if(!a){loginView();return;}$("ac").innerHTML='<div class="loading">Loading your account</div>';let l,me=null;
+ try{[l,me]=await Promise.all([api("public.acctOrders",{token:a.token}),SITE.v4?api("public.acctMe",{token:a.token}).catch(()=>null):null]);}
+ catch(err){if(/sign in again/i.test(err.message)){setA(null);TAB="in";loginView("Your session ended. Please sign in again.");}
+  else{$("ac").innerHTML=`<div class="errorbox">We could not load your account right now (${esc(err.message)}). You are still signed in. <button class="linkbtn" type="button" id="retry">Try again</button></div>`;$("retry").onclick=ordersView;}
+  return;}
+ if(me&&me.name&&a.name!==me.name){a.name=me.name;setA(a);}
+ $("ah").textContent=a.name?("Hi, "+a.name.split(" ")[0]):"My account";$("asub").textContent="Your details and orders.";
+ const prov=me?(me.providers||[]).map(p=>({google:"Google",password:"Email & password","email-code":"Email code"}[p]||p)).join(", "):"";
+ $("ac").innerHTML=`<div class="card" style="margin-bottom:16px" id="det"><p class="eyebrow">Account details</p><p style="margin-top:8px">${a.name?`<b>${esc(a.name)}</b><br>`:""}${esc(a.email)}</p>${prov?`<p class="muted" style="font-size:.85rem;margin-top:6px">Sign-in: ${esc(prov)}${me&&me.member_since?` &middot; Member since ${esc(fmtDate(me.member_since)||"")}`:""}</p>`:""}
+  <p style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">${SITE.v4?`<button class="btn ghost sm" id="sp">${me&&me.has_password?"Change password":"Set a password"}</button>`:""}<button class="btn ghost sm" id="so">Sign out</button> <button class="btn ghost sm" id="sa">Sign out everywhere</button></p></div>
  <h3 style="margin-bottom:10px">My orders</h3><div id="ol">${l.length?l.map(orderCard).join(""):'<div class="empty">No orders found for this email yet. If you ordered with a different email or without one, add that order below.</div>'}</div>
  <form id="cl" class="card" style="margin-top:20px" novalidate><h4 style="margin-bottom:8px">Add an older order</h4><div class="row"><div class="field"><label for="co">Order reference</label><input id="co"></div><div class="field"><label for="c4">Last 4 digits of the mobile</label><input id="c4" maxlength="4" inputmode="numeric"></div></div><button class="btn ghost sm">Add to my account</button></form>`;
- $("so").onclick=async()=>{try{await api("public.acctLogout",{token:a.token});}catch{}setA(null);loginView();};
- $("sa").onclick=async()=>{try{await api("public.acctLogout",{token:a.token,all:true});}catch{}setA(null);loginView("Signed out on all devices.");};
+ if($("sp"))$("sp").onclick=()=>passwordView(false);
+ $("so").onclick=async()=>{try{await api("public.acctLogout",{token:a.token});}catch{}setA(null);TAB="in";$("ah").textContent="My account";loginView();};
+ $("sa").onclick=async()=>{try{await api("public.acctLogout",{token:a.token,all:true});}catch{}setA(null);TAB="in";loginView("Signed out on all devices.");};
  $("cl").onsubmit=async e=>{e.preventDefault();try{await api("public.acctClaim",{token:a.token,order_id:$("co").value.trim(),phone_last4:$("c4").value.trim()});toast("Order added");ordersView();}catch(err){toast(err.message,1);}};}
 function orderCard(o){const real=(o.items||[]).filter(i=>!String(i.product_id||"").startsWith("OPT-")),paid=o.payment_status==="PAID";
  return `<div class="card" style="margin-bottom:12px"><p class="eyebrow">${esc(o.order_id)} &middot; ${esc(fmtDate(o.created_at)||"")}</p><p>Payment: <span class="badge ${paid?"ok":"warn"}">${esc(o.payment_status)}</span> Status: <span class="badge">${esc(String(o.order_status||"").replace(/_/g," "))}</span></p>
@@ -34,5 +97,20 @@ document.addEventListener("click",async e=>{const g=e.target.closest("[data-agai
   (o.items||[]).filter(i=>!String(i.product_id||"").startsWith("OPT-")).forEach(i=>{const p=CAT.find(x=>x.product_id===i.product_id);if(p&&p.available!==false){if(!cartQty(p.product_id)){Cart.add(p.product_id,Math.min(10,Number(i.qty)||1));add++;}}else skip++;});
   toast(add?`Added ${add} item${add>1?"s":""} to your cart${skip?` (${skip} no longer available)`:""}`:(skip?"Those items are no longer available":"Already in your cart"),!add&&skip);if(add)setTimeout(()=>location.href="cart.html",900);}
  if(r){const a=getA();let l=[];try{l=await api("public.acctOrders",{token:a.token});}catch{}const o=l.find(x=>x.order_id===r.dataset.rev);try{sessionStorage.setItem("sr_note",(o&&o.gift_message)||"")}catch{}location.href="reveal.html";}});
-(async()=>{try{CAT=await loadProducts();}catch{}getA()?ordersView():loginView();})();
+
+/* ---------- owner diagnostics: account.html?setup=1 (shows configuration status only; no secrets exist in the browser) ---------- */
+async function setupPanel(){
+ const row=(ok,t,fix)=>`<li><b>${ok===null?"&#8226;":ok?"&#10003;":"&#10007;"}</b> ${t}${!ok&&ok!==null&&fix?`<br><span class="muted">${fix}</span>`:""}</li>`;
+ let gis=null;if(SITE.google_client_id){try{await loadGis();gis=true;}catch{gis=false;}}
+ $("setup").innerHTML=`<div class="setup"><b>Sign-in setup check</b> (only you see this, via ?setup=1)<ul style="list-style:none;margin-top:8px">
+  ${row(!!SITE.store_name,"Backend reachable","Check CONFIG.API_URL in site/js/common.js and that the Apps Script web app is deployed to &ldquo;Anyone&rdquo;.")}
+  ${row(!!SITE.v4,"Backend patch v4 installed (email + password, Google)","Paste BACKEND-PATCH-v4.gs below v3 in Code.gs, then Deploy &rarr; New version.")}
+  ${row(!!SITE.google_client_id,"GOOGLE_CLIENT_ID script property set","Apps Script &rarr; Project Settings &rarr; Script properties &rarr; GOOGLE_CLIENT_ID.")}
+  ${SITE.google_client_id?row(gis,"Google sign-in script loads in this browser","Network or ad-blocker is blocking accounts.google.com.") :""}
+  ${row(null,`This page's origin is <code>${esc(location.origin)}</code>. It must be listed under &ldquo;Authorised JavaScript origins&rdquo; of your OAuth client (origin only, no path). A mismatch shows &ldquo;Error 400: origin_mismatch&rdquo; inside the Google popup.`)}
+  ${row(null,"Mobile-number (OTP) sign-in: not available. It needs an SMS provider account, which this site does not have.")}</ul></div>`;
+}
+(async()=>{try{[CAT]=await Promise.all([loadProducts().catch(()=>[]),loadConfig()]);}catch{}
+ getA()?ordersView():loginView();
+ if(new URLSearchParams(location.search).get("setup")==="1")setupPanel();})();
 </script></body></html>

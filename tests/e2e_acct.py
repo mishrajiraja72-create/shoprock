@@ -32,7 +32,7 @@ with sync_playwright() as p:
     t("acct: signed-out visitor sees only the sign-in form (no orders requested)", "public.acctOrders" not in m.calls)
     pg.fill("#em","not-an-email"); pg.click("#b1"); pg.wait_for_timeout(200); t("acct: invalid email blocked before any request", not m.sent)
     pg.fill("#em","Asha@Example.com"); pg.click("#b1"); pg.wait_for_selector("#f2")
-    t("acct: code requested for lower-cased email, wording does not reveal if the email exists", m.sent==["asha@example.com"] and "has an order with us" in pg.inner_text("#ac"))
+    t("acct: code requested for lower-cased email, wording does not reveal if the email exists", m.sent==["asha@example.com"] and "an order with us" in pg.inner_text("#ac"))
     pg.fill("#cd","000000"); pg.click("#b2"); pg.wait_for_timeout(300); t("acct: wrong code shows error and stays on code page", pg.locator("#f2").count()==1 and not json.loads(pg.evaluate("localStorage.getItem('sr_acct')") or "null"))
     pg.fill("#cd","123456"); pg.click("#b2"); pg.wait_for_selector("#ol .card")
     t("acct: right code signs in, token stored", json.loads(pg.evaluate("localStorage.getItem('sr_acct')"))["email"]=="asha@example.com")

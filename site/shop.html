@@ -1,23 +1,33 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Shop — SHOPROCK</title><meta name="description" content="Browse the SHOPROCK gift collection."><link rel="stylesheet" href="css/shoprock.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/premium.css"></head><body>
+<title>Shop — SHOPROCK</title><meta name="description" content="Browse the SHOPROCK gift collection."><link rel="stylesheet" href="css/shoprock.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/premium.css"><link rel="stylesheet" href="css/v4.css"></head><body>
 <div id="hdr"></div>
-<section id="collection"><div class="container"><h2 style="margin-bottom:24px">The collection</h2>
- <div class="row" style="margin-bottom:24px">
-  <div class="field"><label for="q">Search</label><input id="q" type="search" placeholder="Search gifts"></div>
+<section id="collection" style="padding-top:18px"><div class="container">
+ <div class="sec-h"><h2 id="ttl">The collection</h2></div>
+ <nav class="cat-row" id="cats" aria-label="Categories" hidden style="padding-top:0"></nav>
+ <div class="shop-bar">
+  <div class="field"><label for="q">Search</label><input id="q" type="search" placeholder="Search gifts" autocomplete="off"></div>
   <div class="field"><label for="cat">Category</label><select id="cat"><option value="">All</option></select></div>
-  <div class="field"><label for="max">Max price (₹)</label><input id="max" type="number" min="0"></div>
+  <div class="field"><label for="max">Max price (₹)</label><input id="max" type="number" min="0" inputmode="numeric"></div>
   <div class="field"><label for="sort">Sort</label><select id="sort"><option value="new">Newest</option><option value="lo">Price: low to high</option><option value="hi">Price: high to low</option></select></div>
  </div>
- <div id="out" class="grid"><div class="loading">Loading</div></div></div></section>
+ <p class="shop-count" id="cnt" aria-live="polite"></p>
+ <div id="out" class="pgrid"><div class="loading" style="grid-column:1/-1">Loading</div></div></div></section>
 <div id="ftr"></div><script src="js/common.js"></script>
 <script>
 let all=[];const $=id=>document.getElementById(id);
-function render(){let l=all.filter(p=>p.available);const q=$("q").value.toLowerCase(),c=$("cat").value,m=Number($("max").value);
- if(q)l=l.filter(p=>(p.name+" "+(p.occasion||"")+" "+(p.category||"")).toLowerCase().includes(q));if(c)l=l.filter(p=>p.category===c);if(m)l=l.filter(p=>p.price<=m);
+function render(){let l=all.filter(p=>p.available);const q=$("q").value.trim(),c=$("cat").value,m=Number($("max").value);
+ if(q)l=searchProducts(l,q);if(c)l=l.filter(p=>p.category===c);if(m)l=l.filter(p=>p.price<=m);
  if($("sort").value==="lo")l.sort((a,b)=>a.price-b.price);if($("sort").value==="hi")l.sort((a,b)=>b.price-a.price);
- $("out").innerHTML=!all.length?'<div class="empty" style="grid-column:1/-1">Our first collection is being prepared. Check back soon.</div>':!l.length?'<div class="empty" style="grid-column:1/-1">No gifts match those filters. Try clearing them.</div>':l.map(productCard).join("");initReveal();}
-(async()=>{const u=new URLSearchParams(location.search);if(u.get("q"))$("q").value=u.get("q");
- try{all=await loadProducts();[...new Set(all.map(p=>p.category).filter(Boolean))].forEach(c=>$("cat").add(new Option(c,c)));render();}
- catch(e){$("out").innerHTML='<div class="errorbox" style="grid-column:1/-1">The collection could not be loaded. Please try again shortly.</div>';}
- ["q","cat","max","sort"].forEach(i=>$(i).addEventListener("input",render));})();
+ $("cnt").textContent=all.length&&l.length?`${l.length} gift${l.length>1?"s":""}`:"";
+ $("ttl").textContent=c||(q?`Results for “${q}”`:"The collection");
+ document.querySelectorAll("#cats .cat-t").forEach(a=>a.classList.toggle("on",a.getAttribute("href")==="shop.html?cat="+encodeURIComponent(c)));
+ $("out").innerHTML=!all.length?'<div class="empty" style="grid-column:1/-1">Our first collection is being prepared. Check back soon.</div>':!l.length?'<div class="empty" style="grid-column:1/-1">No gifts match that. Try fewer words, or <button class="linkbtn" type="button" id="clr">clear the filters</button> &middot; <a href="gift-finder.html">use the Gift Finder</a></div>':l.map(productCard).join("");}
+(async()=>{const u=new URLSearchParams(location.search);if(u.get("q"))$("q").value=u.get("q");if(u.get("max")&&+u.get("max")>0)$("max").value=+u.get("max");
+ try{await loadConfig();all=await loadProducts();const cats=catsOf(all);
+  cats.forEach(c=>$("cat").add(new Option(c.name,c.name)));if(cats.length){$("cats").hidden=false;$("cats").innerHTML=catTiles(cats);}
+  if(u.get("cat")&&cats.some(c=>c.name===u.get("cat")))$("cat").value=u.get("cat");
+  render();if(u.get("view")==="cats"&&cats.length){$("cats").scrollIntoView({block:"center"});}}
+ catch(e){$("out").innerHTML='<div class="errorbox" style="grid-column:1/-1">The collection could not be loaded. <button class="linkbtn" type="button" onclick="location.reload()">Try again</button></div>';}
+ ["q","cat","max","sort"].forEach(i=>$(i).addEventListener("input",render));
+ $("out").addEventListener("click",e=>{if(e.target.id==="clr"){$("q").value="";$("cat").value="";$("max").value="";render();}});})();
 </script></body></html>

@@ -4,6 +4,7 @@ set -e
 cd "$(dirname "$0")/.."
 echo "== unit (Cart logic)";            node cart-logic.test.js | tail -1
 echo "== backend patch (in-memory stub)"; node tests/backend.test.js | tail -1
+echo "== backend patch v4 (accounts, in-memory stub)"; node tests/backend_v4.test.js | tail -1
 echo "== browser: storefront flow";     (cd tests && python3 e2e.py      | tail -1)
 echo "== browser: v3 features";         (cd tests && python3 e2e_v3.py   | tail -1)
 echo "== browser: dashboard -> store";  (cd tests && python3 e2e_dash.py | tail -1)
@@ -11,3 +12,4 @@ echo "== browser: gift finder + reveal"; (cd tests && python3 e2e_creative.py | 
 echo "== browser: delivery loop + moments + surprise week"; (cd tests && python3 e2e_loop.py | tail -1)
 echo "== browser: special-date prompt"; (cd tests && python3 e2e_moment.py | tail -1)
 echo "== browser: account + gifting options"; (cd tests && python3 e2e_acct.py | tail -1)
+echo "== browser: v4 home, nav, search, wishlist, sign-in"; (cd tests && python3 e2e_v4.py | tail -1)
