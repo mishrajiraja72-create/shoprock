@@ -210,7 +210,7 @@ const exportSheet = sheet => guarded(async () => { csvDownload(sheet + ".csv", a
 
 /* ===== v3 sections: product details/variants, bundles, analytics, reminders =====
    details + bundles save into site_json (existing persistence path -> live storefront). analytics + reminders need BACKEND-PATCH-v3.gs. */
-MENU.push(["details","Product details & variants"],["bundles","Bundles"],["analytics","Analytics"],["reminders","Reminders & consent"]);
+MENU.push(["cats","Home categories"],["details","Product details & variants"],["bundles","Bundles"],["analytics","Analytics"],["reminders","Reminders & consent"]);
 ROLE_MENU.OWNER = MENU.map(m => m[0]);
 async function readSite() { const st = await api("settings.get"); let d = {}; try { d = JSON.parse(st.site_json || "{}"); } catch {} return d; }
 async function writeSite(fn) { const d = await readSite(); fn(d); await api("settings.set", {key:"site_json", value:JSON.stringify(d)}); try { sessionStorage.removeItem("sr_cfg"); } catch {} }
@@ -243,6 +243,23 @@ VIEWS.bundles = async () => {
   $("b_go").onclick = () => guarded(async () => { const ids = [...document.querySelectorAll("[data-bp]:checked")].map(x => x.dataset.bp), name = $("b_n").value.trim(), price = Number($("b_p").value) || 0;
     if (!name) throw new Error("Give the bundle a name."); if (ids.length < 2) throw new Error("Pick at least 2 products."); const week = $("b_w").checked; if (week && ids.length !== 3) throw new Error("A Surprise Week needs exactly 3 products."); if (price && price >= reg(ids)) throw new Error("Bundle price must be lower than the total (" + inr(reg(ids)) + ") or left empty.");
     await writeSite(d2 => { d2.bundles = (d2.bundles || []).concat({id:"b" + Date.now().toString(36), name, items:ids, price:price || 0, on:true, ...(week ? {kind:"week"} : {})}); }); toast("Bundle saved. Live on the product pages."); VIEWS.bundles(); });
+};
+VIEWS.cats = async () => {
+  const [P, d] = await Promise.all([pubProducts(), readSite()]); const list = d.categories || [];
+  const boxes = (sel) => P.map(p => `<label style="text-transform:none;letter-spacing:0;display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" style="width:auto" data-cp="${esc(p.id)}" ${(sel || []).includes(p.id) ? "checked" : ""}> ${esc(p.name)} (${inr(p.price)})</label>`).join("") || "<span class='muted'>No published products yet.</span>";
+  const form = (c, i) => `<div class="field"><label>Category name (short, max 24 letters)</label><input data-f="name" maxlength="24" value="${esc(c.name || "")}"></div><div class="field"><label>Round icon photo link (https, optional). Empty = first product's photo</label><input data-f="img" value="${esc(c.img || "")}" placeholder="https://..."></div><div class="field"><label>Products in this category</label>${boxes(c.items)}</div>`;
+  $("view").innerHTML = `<div class="notice" style="margin-bottom:14px">These are the round category shortcuts on the home page and the filter on the Shop page. Only categories with at least one available product are shown to customers. Order here = order on the site.</div>
+   ${list.length ? list.map((c, i) => `<details class="card" style="margin-bottom:12px" data-ci="${i}"><summary><b>${esc(c.name)}</b> <span class="muted">${(c.items || []).length} products${c.on === false ? " · hidden" : ""}</span></summary>${form(c, i)}<p style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn sm" data-save="${i}">Save</button><button class="btn ghost sm" data-up="${i}">Move up</button><button class="btn ghost sm" data-down="${i}">Move down</button><button class="btn ghost sm" data-tog="${i}">${c.on === false ? "Show" : "Hide"}</button><button class="btn ghost sm" data-del="${i}">Delete</button></p></details>`).join("") : empty("No categories yet, so the home page shows no category circles. Add one below.")}
+   <h3 style="margin:20px 0 8px">New category</h3><div class="card" id="nc">${form({}, -1)}<button class="btn sm" id="nc_go">Add category</button></div>`;
+  const read = box => { const g = k => box.querySelector(`[data-f="${k}"]`).value.trim(), name = g("name").slice(0, 24), img = g("img"); if (!name) throw new Error("Give the category a name."); if (img && !/^https:\/\//.test(img)) throw new Error("Icon link must start with https://"); return {name, img, items:[...box.querySelectorAll("[data-cp]:checked")].map(x => x.dataset.cp)}; };
+  const dup = (arr, name, skip) => arr.some((c, i) => i !== skip && String(c.name).toLowerCase() === name.toLowerCase());
+  $("nc_go").onclick = () => guarded(async () => { const c = read($("nc")); if (dup(list, c.name, -1)) throw new Error("A category with this name already exists."); await writeSite(d2 => { d2.categories = (d2.categories || []).concat({id:"c" + Date.now().toString(36), ...c, on:true}); }); toast("Category added. Live on the home page."); VIEWS.cats(); });
+  $("view").onclick = e => { const b = e.target.closest("[data-save],[data-up],[data-down],[data-tog],[data-del]"); if (!b) return; const D = b.dataset, i = +(D.save ?? D.up ?? D.down ?? D.tog ?? D.del); guarded(async () => {
+    let c; if (D.save !== undefined) { c = read(b.closest("details")); if (dup(list, c.name, i)) throw new Error("A category with this name already exists."); }
+    await writeSite(d2 => { const a = d2.categories = d2.categories || []; if (!a[i]) return;
+      if (D.save !== undefined) a[i] = {...a[i], ...c}; else if (D.tog !== undefined) a[i].on = a[i].on === false; else if (D.del !== undefined) a.splice(i, 1);
+      else { const j = D.up !== undefined ? i - 1 : i + 1; if (j >= 0 && j < a.length) [a[i], a[j]] = [a[j], a[i]]; } });
+    toast("Saved. Live on the site."); VIEWS.cats(); }); };
 };
 VIEWS.analytics = async () => {
   let r; try { r = await api("analytics.report", {}); } catch (e) { $("view").innerHTML = `<div class="notice">Analytics needs BACKEND-PATCH-v3 deployed in Apps Script, so no numbers can be shown yet. (${esc(e.message)})</div>`; return; }
