@@ -135,12 +135,18 @@ document.addEventListener("load", e => { const t = e.target; if (t && t.tagName 
 /* ---------- catalogue helpers shared by home, shop and search (all derived from the real product list) ---------- */
 const SYN = {gf:"girlfriend", bf:"boyfriend", bday:"birthday", anniv:"anniversary", teddy:"plush", plushie:"plush", plushies:"plush", bae:"partner", wife:"partner", husband:"partner"};
 function metaFor(pid) { return (((SITE || {}).site || {}).meta || {})[pid] || {}; }
-function searchText(p) { const m = metaFor(p.product_id); return [p.name, p.category, p.occasion, p.badge, p.description, m.occasion, m.recipient, m.gift_suitability, (m.tags || []).join(" ")].filter(Boolean).join(" ").toLowerCase(); }
+function searchText(p) { const m = metaFor(p.product_id); return [p.name, p.category, catsCfg().filter(c => (c.items || []).includes(p.product_id)).map(c => c.name).join(" "), p.occasion, p.badge, p.description, m.occasion, m.recipient, m.gift_suitability, (m.tags || []).join(" ")].filter(Boolean).join(" ").toLowerCase(); }
 function searchProducts(list, q) {
   const toks = String(q || "").toLowerCase().split(/[^a-z0-9₹]+/).filter(Boolean); if (!toks.length) return list.slice();
   return list.filter(p => { const h = searchText(p); return toks.every(t => h.includes(t) || (t.length > 3 && t.endsWith("s") && h.includes(t.slice(0, -1))) || (SYN[t] && h.includes(SYN[t]))); });
 }
-function catsOf(list) { const m = new Map(); list.filter(p => p.available !== false && p.category).forEach(p => { const c = m.get(p.category) || {name:p.category, count:0, img:""}; c.count++; if (!c.img) c.img = p.image_url || (p.gallery && p.gallery[0]) || ""; m.set(p.category, c); }); return [...m.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)); }
+/* Categories are managed in the dashboard (Home categories -> site_json.categories). Nothing is guessed from free-text product fields. */
+function catsCfg() { return (((SITE || {}).site || {}).categories || []).filter(c => c && c.name && c.on !== false); }
+function inCat(p, name) { const c = catsCfg().find(x => x.name === name); return c ? (c.items || []).includes(p.product_id) : false; }
+function catsOf(list) {
+  return catsCfg().map(c => { const ids = c.items || [], m = list.filter(p => p.available !== false && ids.includes(p.product_id)), f = m[0];
+    return {name:c.name, count:m.length, img:(c.img && /^https:\/\//.test(c.img)) ? c.img : (f ? (f.image_url || (f.gallery && f.gallery[0]) || "") : "")}; }).filter(c => c.count > 0);
+}
 function catTiles(cats, active) {
   return cats.map(c => `<a class="cat-t${active === c.name ? " on" : ""}" href="shop.html?cat=${encodeURIComponent(c.name)}"><span class="cat-ic">${c.img ? `<img loading="lazy" decoding="async" src="${esc(c.img)}" alt="">` : `<i>${esc(c.name.slice(0, 1).toUpperCase())}</i>`}</span><span class="cat-n">${esc(c.name)}</span></a>`).join("");
 }
